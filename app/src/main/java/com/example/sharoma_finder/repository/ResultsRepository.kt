@@ -3,6 +3,7 @@ package com.example.sharoma_finder.repository
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.example.sharoma_finder.domain.CategoryModel
+import com.example.sharoma_finder.domain.StoreModel
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -26,6 +27,31 @@ class ResultsRepository{
                     }
                 }
                     listData.value=lists
+
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                TODO("Not yet implemented")
+            }
+
+        })
+        return listData
+    }
+
+    fun loadPopular(id:String):LiveData<MutableList<StoreModel>>{
+        val listData=MutableLiveData<MutableList<StoreModel>>()
+        val ref=firebaseDatabase.getReference("Stores")
+        val query: Query=ref.orderByChild("CategoryId").equalTo(id)
+        query.addListenerForSingleValueEvent(object:ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val lists= mutableListOf<StoreModel>()
+                for (child in snapshot.children) {
+                    val model = child.getValue(StoreModel::class.java)
+                    if (model != null) {
+                        lists.add(model)
+                    }
+                }
+                listData.value=lists
 
             }
 

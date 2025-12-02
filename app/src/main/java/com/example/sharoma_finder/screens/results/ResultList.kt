@@ -15,6 +15,7 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.CategoryModel
+import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.viewModel.ResultsViewModel
 
 @Composable
@@ -23,13 +24,15 @@ fun ResultList(
     id:String,
     title:String,
     onBackClick:()->Unit,
-    onStoreClick:(String)->Unit,
+    onStoreClick:(StoreModel)->Unit,
 ){
     val viewModel=ResultsViewModel()
 
     val subCategory=remember{ mutableStateListOf<CategoryModel>() }
+    val popular=remember{ mutableStateListOf<StoreModel>() }
 
     var showSubCategoryLoading by remember { mutableStateOf(true)}
+    var showPopularLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(id) {
         viewModel.loadSubCategory(id).observeForever{
@@ -39,6 +42,14 @@ fun ResultList(
 
         }
     }
+    LaunchedEffect(id) {
+        viewModel.loadPopular(id).observeForever{
+            popular.clear()
+            popular.addAll(it)
+            showPopularLoading=false
+        }
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -47,6 +58,7 @@ fun ResultList(
         item { TopTile(title,onBackClick) }
         item{ Search() }
         item { SubCategory(subCategory,showSubCategoryLoading) }
+        item { PopularSection(popular,showPopularLoading, onStoreClick )  }
     }
 }
 
