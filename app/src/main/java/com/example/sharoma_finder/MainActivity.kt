@@ -15,7 +15,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.screens.dashboard.DashboardScreen
+import com.example.sharoma_finder.screens.map.MapScreen
 import com.example.sharoma_finder.screens.results.ResultList
 import com.example.sharoma_finder.ui.theme.Sharoma_FinderTheme
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
@@ -33,6 +35,7 @@ class MainActivity : ComponentActivity() {
 sealed class Screen{
     data object Dashboard:Screen()
     data class Results(val id:String,val title:String):Screen()
+    data class Map(val store:StoreModel):Screen()
 }
 
 
@@ -68,10 +71,12 @@ fun MainApp(){
                 },
                 onStoreClick = {
                     store->
-
+                    backStack.add(Screen.Map(store))
                 }
-
             )
+        }
+        is Screen.Map ->{
+            MapScreen(store=screen.store)
         }
     }
 }
