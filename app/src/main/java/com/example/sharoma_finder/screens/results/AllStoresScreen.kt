@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,7 +28,10 @@ fun AllStoresScreen(
     categoryId: String,
     mode: String,
     onBackClick: () -> Unit,
-    onStoreClick: (StoreModel) -> Unit
+    onStoreClick: (StoreModel) -> Unit,
+
+    isStoreFavorite: (Int) -> Boolean = { false },
+    onFavoriteToggle: (Int) -> Unit = {}
 ) {
     val viewModel: ResultsViewModel = viewModel()
 
@@ -69,9 +71,16 @@ fun AllStoresScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(list.size) { index ->
+                        val item = list[index]
 
                         Box(modifier = Modifier.fillMaxWidth()) {
-                            ItemsPopular(item = list[index], onClick = { onStoreClick(list[index]) })
+
+                            ItemsPopular(
+                                item = item,
+                                isFavorite = isStoreFavorite(item.Id),
+                                onFavoriteClick = { onFavoriteToggle(item.Id) },
+                                onClick = { onStoreClick(item) }
+                            )
                         }
                     }
                 }

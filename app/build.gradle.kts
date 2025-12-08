@@ -65,4 +65,5 @@ dependencies {
     implementation("com.google.maps.android:maps-compose:6.12.2")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
     implementation("androidx.compose.runtime:runtime-livedata:1.5.4")
+    implementation("androidx.compose.material:material-icons-extended:1.5.4")
 }

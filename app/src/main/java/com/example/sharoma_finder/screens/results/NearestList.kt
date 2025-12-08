@@ -15,7 +15,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -72,7 +77,6 @@ fun StoreDetail(item: StoreModel){
             fontSize=14.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines=1)
-
     }
 }
 
@@ -91,20 +95,39 @@ fun StoreImage(item:StoreModel){
 
 @Composable
 fun ItemsNearest(
-    item:StoreModel,
-    onClick:(()->Unit)?=null
-){
-    Row (modifier = Modifier
-        .fillMaxWidth()
-        .background(colorResource(R.color.black3),shape=RoundedCornerShape(10.dp))
-        .wrapContentHeight()
-        .padding(8.dp)
-        .clickable(enabled = onClick!=null){
-            onClick?.invoke()
-        }
+    item: StoreModel,
+    isFavorite: Boolean,
+    onFavoriteClick: () -> Unit,
+    onClick: (() -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(colorResource(R.color.black3), shape = RoundedCornerShape(10.dp))
+            .wrapContentHeight()
+            .padding(8.dp)
+            .clickable(enabled = onClick != null) {
+                onClick?.invoke()
+            },
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        StoreImage(item=item)
-        StoreDetail(item=item)
+
+        StoreImage(item = item)
+
+        Box(modifier = Modifier
+            .weight(1f)
+            .padding(end = 8.dp)) {
+            StoreDetail(item = item)
+        }
+
+        IconButton(onClick = onFavoriteClick) {
+            Icon(
+                imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                contentDescription = "Favorite",
+                tint = colorResource(R.color.gold),
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }
 
@@ -113,7 +136,10 @@ fun NearestList(
     list: SnapshotStateList<StoreModel>,
     showNearestLoading: Boolean,
     onStoreClick: (StoreModel) -> Unit,
-    onSeeAllClick: () -> Unit
+    onSeeAllClick: () -> Unit,
+
+    isStoreFavorite: (Int) -> Boolean = { false },
+    onFavoriteToggle: (Int) -> Unit = {}
 ) {
     Column {
         Row(
@@ -154,66 +180,43 @@ fun NearestList(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp)
             ) {
                 items(list.size) { index ->
-                    ItemsNearest(item = list[index], onClick = {
-                        onStoreClick(list[index])
-                    })
+                    val item = list[index]
+                    ItemsNearest(
+                        item = item,
+                        isFavorite = isStoreFavorite(item.Id),
+                        onFavoriteClick = { onFavoriteToggle(item.Id) },
+                        onClick = { onStoreClick(item) }
+                    )
                 }
             }
         }
     }
 }
 
+
 @Preview
 @Composable
 fun NearestListPreview(){
-    val list= remember {
-        androidx.compose.runtime.mutableStateListOf<StoreModel>(
-            StoreModel(
-                Title="Store 1",
-                Address="123 Main St",
-                ShortAddress = "Main St",
-                Activity = "Retail",
-                Hours = "9am - 5pm"
-            ),
-            StoreModel(
-                Title="Store 2",
-                Address="456 Oak St",
-                ShortAddress = "Oak St",
-                Activity = "Cafe",
-                Hours = "7am - 3pm"
-            )
+    val list = remember {
+        androidx.compose.runtime.mutableStateListOf(
+            StoreModel(Title="Store 1", Address="123 Main St", ShortAddress = "Main St", Activity = "Retail", Hours = "9am"),
+            StoreModel(Title="Store 2", Address="456 Oak St", ShortAddress = "Oak St", Activity = "Cafe", Hours = "7am")
         )
     }
-
-
     NearestList(list=list, showNearestLoading = false, onStoreClick = {}, onSeeAllClick = {})
 }
-
 
 @Preview
 @Composable
 fun ItemsNearestPreview()
 {
-    val item=StoreModel(
-        Title="Store Title",
-        Address="123 Main St",
-        ShortAddress = "Main St",
-        Activity = "test",
-        Hours = "9am - 5pm"
-    )
-    ItemsNearest(item=item, onClick = {})
+    val item=StoreModel(Title="Store Title", Address="123 Main St", ShortAddress = "Main St", Activity = "test", Hours = "9am")
+    ItemsNearest(item=item, isFavorite = false, onFavoriteClick = {}, onClick = {})
 }
-
 
 @Preview
 @Composable
 fun StoreDetailPreview(){
-    val item=StoreModel(
-        Title="Store Title",
-        Address="123 Main St",
-        ShortAddress = "Main St",
-        Activity="test",
-        Hours="9am - 5pm"
-    )
+    val item=StoreModel(Title="Store Title", Address="123 Main St", ShortAddress = "Main St", Activity="test", Hours="9am")
     StoreDetail(item)
 }

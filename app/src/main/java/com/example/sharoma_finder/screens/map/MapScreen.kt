@@ -33,64 +33,77 @@ import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 
 @Composable
+fun MapScreen(
+    store: StoreModel,
 
-fun MapScreen(store:StoreModel){
-    val latlng=LatLng(store.Latitude,store.Longitude)
-    val cameraPositionState= rememberCameraPositionState{
-        position=CameraPosition.fromLatLngZoom(latlng,15f)
+    isFavorite: Boolean = false,
+    onFavoriteClick: () -> Unit = {}
+) {
+    val latlng = LatLng(store.Latitude, store.Longitude)
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(latlng, 15f)
     }
     val markerState = remember {
         MarkerState(position = latlng)
     }
-    val context= LocalContext.current
+    val context = LocalContext.current
 
-    ConstraintLayout (modifier = Modifier
-        .fillMaxSize()
+    ConstraintLayout(
+        modifier = Modifier.fillMaxSize()
     ) {
-        val(map,detail)=createRefs()
-        GoogleMap(modifier=Modifier
-            .fillMaxSize()
-            .constrainAs(map){
-                centerTo(parent)
-            },
+        val (map, detail) = createRefs()
+
+        GoogleMap(
+            modifier = Modifier
+                .fillMaxSize()
+                .constrainAs(map) {
+                    centerTo(parent)
+                },
             cameraPositionState = cameraPositionState
-        ){
+        ) {
             Marker(state = markerState, title = "Location Marker")
         }
+
         LazyColumn(
             modifier = Modifier
                 .wrapContentHeight()
                 .padding(horizontal = 24.dp, vertical = 32.dp)
                 .fillMaxWidth()
-                .background(colorResource(R.color.black3),shape= RoundedCornerShape(10.dp))
+                .background(colorResource(R.color.black3), shape = RoundedCornerShape(10.dp))
                 .padding(16.dp)
-                .constrainAs(detail){
+                .constrainAs(detail) {
                     centerHorizontallyTo(parent)
                     bottom.linkTo(parent.bottom)
                 }
         ) {
-            item { ItemsNearest(store) }
+
             item {
-                Button(shape= RoundedCornerShape(10.dp),
+                ItemsNearest(
+                    item = store,
+                    isFavorite = isFavorite,
+                    onFavoriteClick = onFavoriteClick
+                )
+            }
+
+            item {
+                Button(
+                    shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = colorResource(R.color.gold)
-
                     ),
                     modifier = Modifier
                         .padding(8.dp)
                         .fillMaxWidth(),
                     onClick = {
-                        val phoneNumber="tel:"+store.Call
-                        val dialIntent= Intent(Intent.ACTION_DIAL,Uri.parse(phoneNumber))
+                        val phoneNumber = "tel:" + store.Call
+                        val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse(phoneNumber))
                         context.startActivity(dialIntent)
-
                     }
-                    ) {
-
+                ) {
                     Text(
                         "Call to Store",
-                        fontSize=18.sp,
-                        color= Color.Black,
+                        fontSize = 18.sp,
+                        color = Color.Black,
                         fontWeight = FontWeight.Bold
                     )
                 }

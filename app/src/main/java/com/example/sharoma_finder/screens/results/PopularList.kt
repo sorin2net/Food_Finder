@@ -8,15 +8,21 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -40,75 +46,89 @@ import com.example.sharoma_finder.domain.StoreModel
 
 @Composable
 fun ItemsPopular(
-    item:StoreModel,
-    onClick:()->Unit
-){
+    item: StoreModel,
+    isFavorite: Boolean,
+    onFavoriteClick: () -> Unit,
+    onClick: () -> Unit
+) {
     Column(
-        modifier=Modifier
-            .padding(vertical=8.dp)
+        modifier = Modifier
+            .padding(vertical = 8.dp)
             .wrapContentSize()
-            .background(colorResource(R.color.black3),
-                shape= RoundedCornerShape(10.dp)
+            .background(
+                colorResource(R.color.black3),
+                shape = RoundedCornerShape(10.dp)
             )
             .padding(8.dp)
-            .clickable{onClick()}
-    ){
-        AsyncImage(
-            model=item.ImagePath,
-            contentDescription=null,
-            modifier=Modifier
-                .size(135.dp,90.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(colorResource(R.color.grey),
-                    shape= RoundedCornerShape(10.dp)),
-            contentScale=ContentScale.Crop
-        )
+            .clickable { onClick() }
+    ) {
+
+        Box(modifier = Modifier.size(135.dp, 90.dp)) {
+
+
+            AsyncImage(
+                model = item.ImagePath,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        colorResource(R.color.grey),
+                        shape = RoundedCornerShape(10.dp)
+                    ),
+                contentScale = ContentScale.Crop
+            )
+
+            IconButton(
+                onClick = onFavoriteClick,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(4.dp)
+                    .size(24.dp)
+                    .background(
+                        colorResource(R.color.black3).copy(alpha = 0.6f),
+                        CircleShape
+                    )
+            ) {
+                Icon(
+                    imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    contentDescription = "Favorite",
+                    tint = colorResource(R.color.gold), // Culoarea aurie
+                    modifier = Modifier.padding(4.dp)
+                )
+            }
+        }
+
         Text(
-            text=item.Title,
-            color= colorResource(R.color.white),
-            modifier = Modifier.padding(top=8.dp),
-            maxLines=1,
+            text = item.Title,
+            color = colorResource(R.color.white),
+            modifier = Modifier.padding(top = 8.dp),
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             fontWeight = FontWeight.Bold,
-            fontSize=14.sp
+            fontSize = 14.sp
         )
 
+
         Row(
-            Modifier.padding(top=8.dp)
-        ){
-            Image(painter= painterResource(R.drawable.location),
+            Modifier.padding(top = 8.dp)
+        ) {
+            Image(
+                painter = painterResource(R.drawable.location),
                 contentDescription = null,
                 modifier = Modifier.size(16.dp)
             )
             Text(
-                text=item.ShortAddress,
-                color= colorResource(R.color.white),
-                maxLines=1,
+                text = item.ShortAddress,
+                color = colorResource(R.color.white),
+                maxLines = 1,
                 fontWeight = FontWeight.SemiBold,
-                modifier=Modifier.padding(start=8.dp),
+                modifier = Modifier.padding(start = 8.dp),
                 overflow = TextOverflow.Ellipsis,
                 fontSize = 12.sp
             )
-
         }
     }
-}
-
-
-@Preview
-@Composable
-fun ItemsPopularView(){
-    val item=StoreModel(
-        Id=0,
-        CategoryId = "",
-        Title = "Store Title",
-        Latitude = 0.0,
-        Longitude = 0.0,
-        Address = "123 Main St",
-        ShortAddress="Main St",
-        ImagePath = ""
-    )
-    ItemsPopular(item=item, onClick = {})
 }
 
 @Composable
@@ -116,7 +136,10 @@ fun PopularSection(
     list: SnapshotStateList<StoreModel>,
     showPopularLoading: Boolean,
     onStoreClick: (StoreModel) -> Unit,
-    onSeeAllClick: () -> Unit
+    onSeeAllClick: () -> Unit,
+
+    isStoreFavorite: (Int) -> Boolean = { false },
+    onFavoriteToggle: (Int) -> Unit = {}
 ) {
     Column {
         Row(
@@ -156,24 +179,42 @@ fun PopularSection(
             ) {
                 items(list.size) { index ->
                     val item = list[index]
-                    ItemsPopular(item = item, onClick = { onStoreClick(item) })
+
+                    ItemsPopular(
+                        item = item,
+                        isFavorite = isStoreFavorite(item.Id),
+                        onFavoriteClick = { onFavoriteToggle(item.Id) },
+                        onClick = { onStoreClick(item) }
+                    )
                 }
             }
         }
     }
 }
+
 @Preview
 @Composable
+fun ItemsPopularView() {
+    val item = StoreModel(
+        Id = 0,
+        Title = "Store Title",
+        Address = "123 Main St",
+        ShortAddress = "Main St",
+        ImagePath = ""
+    )
+    ItemsPopular(item = item, isFavorite = true, onFavoriteClick = {}, onClick = {})
+}
 
-fun PopularSectionPreview(){
-
-    val list=SnapshotStateList<StoreModel>()
-    list.add(StoreModel(Title="Store 1", ShortAddress = "Address 1"))
-    list.add(StoreModel(Title="Store 2", ShortAddress = "Address 2"))
+@Preview
+@Composable
+fun PopularSectionPreview() {
+    val list = SnapshotStateList<StoreModel>()
+    list.add(StoreModel(Title = "Store 1", ShortAddress = "Address 1"))
+    list.add(StoreModel(Title = "Store 2", ShortAddress = "Address 2"))
     PopularSection(
-        list=list,
+        list = list,
         showPopularLoading = false,
-        onStoreClick = {} ,
+        onStoreClick = {},
         onSeeAllClick = {}
     )
 }
