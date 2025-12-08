@@ -93,7 +93,7 @@ fun ItemsPopular(
                 Icon(
                     imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                     contentDescription = "Favorite",
-                    tint = colorResource(R.color.gold), // Culoarea aurie
+                    tint = colorResource(R.color.gold),
                     modifier = Modifier.padding(4.dp)
                 )
             }
@@ -137,9 +137,8 @@ fun PopularSection(
     showPopularLoading: Boolean,
     onStoreClick: (StoreModel) -> Unit,
     onSeeAllClick: () -> Unit,
-
-    isStoreFavorite: (Int) -> Boolean = { false },
-    onFavoriteToggle: (Int) -> Unit = {}
+    isStoreFavorite: (StoreModel) -> Boolean,
+    onFavoriteToggle: (StoreModel) -> Unit
 ) {
     Column {
         Row(
@@ -179,11 +178,10 @@ fun PopularSection(
             ) {
                 items(list.size) { index ->
                     val item = list[index]
-
                     ItemsPopular(
                         item = item,
-                        isFavorite = isStoreFavorite(item.Id),
-                        onFavoriteClick = { onFavoriteToggle(item.Id) },
+                        isFavorite = isStoreFavorite(item),
+                        onFavoriteClick = { onFavoriteToggle(item) },
                         onClick = { onStoreClick(item) }
                     )
                 }
@@ -215,6 +213,8 @@ fun PopularSectionPreview() {
         list = list,
         showPopularLoading = false,
         onStoreClick = {},
-        onSeeAllClick = {}
+        onSeeAllClick = {},
+        isStoreFavorite = { false },
+        onFavoriteToggle = {}
     )
 }

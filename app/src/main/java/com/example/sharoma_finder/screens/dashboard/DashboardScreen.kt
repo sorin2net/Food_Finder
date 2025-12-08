@@ -15,7 +15,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.colorResource
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.BannerModel
 import com.example.sharoma_finder.domain.CategoryModel
@@ -25,10 +24,9 @@ import com.example.sharoma_finder.viewModel.DashboardViewModel
 @Composable
 fun DashboardScreen(
     onCategoryClick: (id: String, title: String) -> Unit,
-    onStoreClick: (StoreModel) -> Unit
+    onStoreClick: (StoreModel) -> Unit,
+    viewModel: DashboardViewModel
 ) {
-    val viewModel: DashboardViewModel = viewModel()
-
     var selectedTab by remember { mutableStateOf("Home") }
 
     val categoryList by viewModel.loadCategory().observeAsState(initial = emptyList())
@@ -74,12 +72,13 @@ fun DashboardScreen(
                 }
                 "Support" -> SupportScreen()
                 "Wishlist" -> {
-                    val favoriteStores = viewModel.getAllFavoriteStores()
-
+                    // Folosește direct lista observabilă din ViewModel
                     WishlistScreen(
-                        favoriteStores = favoriteStores,
-                        onFavoriteToggle = { id -> viewModel.toggleFavorite(id) },
-                        onStoreClick = onStoreClick
+                        favoriteStores = viewModel.favoriteStores,
+                        isDataLoaded = viewModel.isDataLoaded.value,
+                        onFavoriteToggle = { store -> viewModel.toggleFavorite(store) },
+                        onStoreClick = onStoreClick,
+                        isStoreFavorite = { store -> viewModel.isFavorite(store) }
                     )
                 }
                 "Profile" -> ProfileScreen()

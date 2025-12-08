@@ -29,9 +29,8 @@ fun AllStoresScreen(
     mode: String,
     onBackClick: () -> Unit,
     onStoreClick: (StoreModel) -> Unit,
-
-    isStoreFavorite: (Int) -> Boolean = { false },
-    onFavoriteToggle: (Int) -> Unit = {}
+    isStoreFavorite: (StoreModel) -> Boolean,
+    onFavoriteToggle: (StoreModel) -> Unit
 ) {
     val viewModel: ResultsViewModel = viewModel()
 
@@ -50,7 +49,6 @@ fun AllStoresScreen(
             .fillMaxSize()
             .background(colorResource(R.color.black2))
     ) {
-
         androidx.compose.foundation.layout.Column {
             TopTile(
                 title = if (mode == "popular") "Popular" else "Nearest",
@@ -62,7 +60,6 @@ fun AllStoresScreen(
                     CircularProgressIndicator()
                 }
             } else {
-
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     contentPadding = PaddingValues(16.dp),
@@ -72,13 +69,11 @@ fun AllStoresScreen(
                 ) {
                     items(list.size) { index ->
                         val item = list[index]
-
                         Box(modifier = Modifier.fillMaxWidth()) {
-
                             ItemsPopular(
                                 item = item,
-                                isFavorite = isStoreFavorite(item.Id),
-                                onFavoriteClick = { onFavoriteToggle(item.Id) },
+                                isFavorite = isStoreFavorite(item),
+                                onFavoriteClick = { onFavoriteToggle(item) },
                                 onClick = { onStoreClick(item) }
                             )
                         }

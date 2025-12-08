@@ -137,9 +137,8 @@ fun NearestList(
     showNearestLoading: Boolean,
     onStoreClick: (StoreModel) -> Unit,
     onSeeAllClick: () -> Unit,
-
-    isStoreFavorite: (Int) -> Boolean = { false },
-    onFavoriteToggle: (Int) -> Unit = {}
+    isStoreFavorite: (StoreModel) -> Boolean,
+    onFavoriteToggle: (StoreModel) -> Unit
 ) {
     Column {
         Row(
@@ -183,8 +182,8 @@ fun NearestList(
                     val item = list[index]
                     ItemsNearest(
                         item = item,
-                        isFavorite = isStoreFavorite(item.Id),
-                        onFavoriteClick = { onFavoriteToggle(item.Id) },
+                        isFavorite = isStoreFavorite(item),
+                        onFavoriteClick = { onFavoriteToggle(item) },
                         onClick = { onStoreClick(item) }
                     )
                 }
@@ -203,7 +202,14 @@ fun NearestListPreview(){
             StoreModel(Title="Store 2", Address="456 Oak St", ShortAddress = "Oak St", Activity = "Cafe", Hours = "7am")
         )
     }
-    NearestList(list=list, showNearestLoading = false, onStoreClick = {}, onSeeAllClick = {})
+    NearestList(
+        list = list,
+        showNearestLoading = false,
+        onStoreClick = {},
+        onSeeAllClick = {},
+        isStoreFavorite = { false },
+        onFavoriteToggle = {}
+    )
 }
 
 @Preview

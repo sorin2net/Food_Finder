@@ -9,13 +9,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.res.colorResource
-import androidx.lifecycle.viewmodel.compose.viewModel // Asigură-te că ai importul acesta
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.screens.dashboard.DashboardScreen
 import com.example.sharoma_finder.screens.map.MapScreen
 import com.example.sharoma_finder.screens.results.AllStoresScreen
 import com.example.sharoma_finder.screens.results.ResultList
-import com.example.sharoma_finder.viewModel.DashboardViewModel // Importul ViewModel-ului
+import com.example.sharoma_finder.viewModel.DashboardViewModel
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
 class MainActivity : ComponentActivity() {
@@ -40,7 +40,6 @@ fun MainApp() {
     val systemUiController = rememberSystemUiController()
     systemUiController.setStatusBarColor(color = colorResource(R.color.white))
 
-
     val dashboardViewModel: DashboardViewModel = viewModel()
 
     val backStack = remember { mutableStateListOf<Screen>(Screen.Dashboard) }
@@ -64,7 +63,8 @@ fun MainApp() {
                 },
                 onStoreClick = { store ->
                     backStack.add(Screen.Map(store))
-                }
+                },
+                viewModel = dashboardViewModel
             )
         }
         is Screen.Results -> {
@@ -76,9 +76,8 @@ fun MainApp() {
                 onSeeAllClick = { mode ->
                     backStack.add(Screen.ViewAll(screen.id, mode))
                 },
-                // NOTĂ: Dacă vrei ca și aici (în lista scurtă) să meargă inima,
-                // trebuie să actualizezi și ResultList să accepte parametrii isStoreFavorite/onFavoriteToggle
-                // momentan l-am lăsat așa ca să nu îți dea eroare dacă nu ai modificat ResultList.
+                isStoreFavorite = { store -> dashboardViewModel.isFavorite(store) },
+                onFavoriteToggle = { store -> dashboardViewModel.toggleFavorite(store) }
             )
         }
         is Screen.ViewAll -> {
@@ -87,16 +86,15 @@ fun MainApp() {
                 mode = screen.mode,
                 onBackClick = { popBackStack() },
                 onStoreClick = { store -> backStack.add(Screen.Map(store)) },
-
-                isStoreFavorite = { id -> dashboardViewModel.isFavorite(id) },
-                onFavoriteToggle = { id -> dashboardViewModel.toggleFavorite(id) }
+                isStoreFavorite = { store -> dashboardViewModel.isFavorite(store) },
+                onFavoriteToggle = { store -> dashboardViewModel.toggleFavorite(store) }
             )
         }
         is Screen.Map -> {
             MapScreen(
                 store = screen.store,
-                isFavorite = dashboardViewModel.isFavorite(screen.store.Id),
-                onFavoriteClick = { dashboardViewModel.toggleFavorite(screen.store.Id) }
+                isFavorite = dashboardViewModel.isFavorite(screen.store),
+                onFavoriteClick = { dashboardViewModel.toggleFavorite(screen.store) }
             )
         }
     }

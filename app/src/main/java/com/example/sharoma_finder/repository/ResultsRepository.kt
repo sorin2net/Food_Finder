@@ -1,5 +1,6 @@
 package com.example.sharoma_finder.repository
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.example.sharoma_finder.domain.CategoryModel
@@ -42,7 +43,6 @@ class ResultsRepository {
         listData.value = Resource.Loading()
 
         val ref = firebaseDatabase.getReference("Stores")
-
         var query: Query = ref.orderByChild("CategoryId").equalTo(id)
 
         if (limit != null) {
@@ -54,7 +54,12 @@ class ResultsRepository {
                 val lists = mutableListOf<StoreModel>()
                 for (child in snapshot.children) {
                     val model = child.getValue(StoreModel::class.java)
-                    model?.let { lists.add(it) }
+                    if (model != null) {
+                        // IMPORTANT: Setează cheia Firebase unică
+                        model.firebaseKey = "popular_${child.key}"
+                        lists.add(model)
+                        Log.d("ResultsRepository", "Popular Store: ${model.Title}, Key: ${model.firebaseKey}")
+                    }
                 }
                 listData.value = Resource.Success(lists)
             }
@@ -81,7 +86,12 @@ class ResultsRepository {
                 val lists = mutableListOf<StoreModel>()
                 for (child in snapshot.children) {
                     val model = child.getValue(StoreModel::class.java)
-                    model?.let { lists.add(it) }
+                    if (model != null) {
+                        // IMPORTANT: Setează cheia Firebase unică (diferită de Popular)
+                        model.firebaseKey = "nearest_${child.key}"
+                        lists.add(model)
+                        Log.d("ResultsRepository", "Nearest Store: ${model.Title}, Key: ${model.firebaseKey}")
+                    }
                 }
                 listData.value = Resource.Success(lists)
             }

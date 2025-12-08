@@ -9,7 +9,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -30,7 +29,9 @@ fun ResultList(
     title: String,
     onBackClick: () -> Unit,
     onStoreClick: (StoreModel) -> Unit,
-    onSeeAllClick: (String) -> Unit
+    onSeeAllClick: (String) -> Unit,
+    isStoreFavorite: (StoreModel) -> Boolean,
+    onFavoriteToggle: (StoreModel) -> Unit
 ) {
     val viewModel: ResultsViewModel = viewModel()
 
@@ -58,7 +59,6 @@ fun ResultList(
         else nearestList.filter { it.Activity.equals(selectedCategoryName, ignoreCase = true) }
     }
 
-
     val subCategorySnapshot = remember(subCategoryList) { listToSnapshot(subCategoryList) }
     val popularSnapshot = remember(filteredPopularList) { listToSnapshot(filteredPopularList) }
     val nearestSnapshot = remember(filteredNearestList) { listToSnapshot(filteredNearestList) }
@@ -72,13 +72,11 @@ fun ResultList(
         item { Search() }
 
         item {
-
             SubCategory(
                 subCategory = subCategorySnapshot,
                 showSubCategoryLoading = showSubCategoryLoading,
                 selectedCategoryName = selectedCategoryName,
                 onCategoryClick = { clickedName ->
-
                     selectedCategoryName = if (selectedCategoryName == clickedName) "" else clickedName
                 }
             )
@@ -94,20 +92,24 @@ fun ResultList(
                     list = popularSnapshot,
                     showPopularLoading = showPopularLoading,
                     onStoreClick = onStoreClick,
-                    onSeeAllClick = { onSeeAllClick("popular") }
+                    onSeeAllClick = { onSeeAllClick("popular") },
+                    isStoreFavorite = isStoreFavorite,
+                    onFavoriteToggle = onFavoriteToggle
                 )
             }
         }
 
         item {
             if (!showNearestLoading && filteredNearestList.isEmpty()) {
-
+                // Nu afișăm nimic
             } else {
                 NearestList(
                     list = nearestSnapshot,
                     showNearestLoading = showNearestLoading,
                     onStoreClick = onStoreClick,
-                    onSeeAllClick = { onSeeAllClick("nearest") }
+                    onSeeAllClick = { onSeeAllClick("nearest") },
+                    isStoreFavorite = isStoreFavorite,
+                    onFavoriteToggle = onFavoriteToggle
                 )
             }
         }
@@ -115,7 +117,7 @@ fun ResultList(
 }
 
 fun <T> listToSnapshot(list: List<T>): SnapshotStateList<T> {
-    val snapshot = mutableStateListOf<T>()
+    val snapshot = androidx.compose.runtime.mutableStateListOf<T>()
     snapshot.addAll(list)
     return snapshot
 }
