@@ -6,9 +6,11 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect // Import necesar
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.res.colorResource
+import androidx.core.view.WindowInsetsControllerCompat // Import necesar
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.screens.dashboard.DashboardScreen
@@ -38,6 +40,19 @@ sealed class Screen {
 @Composable
 fun MainApp() {
     val systemUiController = rememberSystemUiController()
+
+    // --- COD NOU: ASCUNDEREA BAREI DE JOS (IMMERSIVE MODE) ---
+    LaunchedEffect(Unit) {
+        // Ascunde bara de navigație (butoanele de jos: Back, Home, Recents)
+        systemUiController.isNavigationBarVisible = false
+
+        // Setează comportamentul: bara apare semi-transparentă la swipe și dispare singură
+        systemUiController.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    }
+    // ---------------------------------------------------------
+
+    // Setăm culoarea barei de status (cea de sus, cu ora/bateria)
     systemUiController.setStatusBarColor(color = colorResource(R.color.white))
 
     val dashboardViewModel: DashboardViewModel = viewModel()
