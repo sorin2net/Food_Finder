@@ -3,17 +3,7 @@ package com.example.sharoma_finder.screens.results
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.StoreModel
+import java.util.Locale
 
 @Composable
 fun ItemsPopular(
@@ -64,8 +55,6 @@ fun ItemsPopular(
     ) {
 
         Box(modifier = Modifier.size(135.dp, 90.dp)) {
-
-
             AsyncImage(
                 model = item.ImagePath,
                 contentDescription = null,
@@ -109,25 +98,38 @@ fun ItemsPopular(
             fontSize = 14.sp
         )
 
-
         Row(
-            Modifier.padding(top = 8.dp)
+            modifier = Modifier.padding(top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Image(
                 painter = painterResource(R.drawable.location),
                 contentDescription = null,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(14.dp)
             )
             Text(
                 text = item.ShortAddress,
                 color = colorResource(R.color.white),
                 maxLines = 1,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(start = 8.dp),
+                modifier = Modifier.padding(start = 4.dp),
                 overflow = TextOverflow.Ellipsis,
                 fontSize = 12.sp
             )
         }
+
+        // --- AICI ESTE MODIFICAREA PENTRU DISTANȚĂ ---
+        // Afișăm distanța sub adresă dacă este calculată
+        if (item.distanceToUser > 0) {
+            Text(
+                text = String.format(Locale.US, "%.2f km", item.distanceToUser / 1000),
+                color = colorResource(R.color.gold),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+        // ---------------------------------------------
     }
 }
 

@@ -1,18 +1,12 @@
 package com.example.sharoma_finder.screens.results
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.colorResource
@@ -30,32 +24,39 @@ fun AllStoresScreen(
     onBackClick: () -> Unit,
     onStoreClick: (StoreModel) -> Unit,
     isStoreFavorite: (StoreModel) -> Boolean,
-    onFavoriteToggle: (StoreModel) -> Unit
+    onFavoriteToggle: (StoreModel) -> Unit,
+    // Lista pre-calculată (deja sortată din ViewModel)
+    preLoadedList: List<StoreModel>? = null
 ) {
     val viewModel: ResultsViewModel = viewModel()
 
-    val dataState = if (mode == "popular") {
-        remember(categoryId) { viewModel.loadPopular(categoryId) }
+    // Alegem sursa datelor: Fie lista gata făcută, fie descărcăm de pe net
+    val listToDisplay = if (preLoadedList != null) {
+        preLoadedList
     } else {
-        remember(categoryId) { viewModel.loadNearest(categoryId) }
+        val dataState = if (mode == "popular") {
+            remember(categoryId) { viewModel.loadPopular(categoryId) }
+        } else {
+            remember(categoryId) { viewModel.loadNearest(categoryId) }
+        }
+        val resource by dataState.observeAsState(Resource.Loading())
+        resource.data ?: emptyList()
     }
 
-    val resource by dataState.observeAsState(Resource.Loading())
-    val list = resource.data ?: emptyList()
-    val isLoading = resource is Resource.Loading
+    val isLoading = if (preLoadedList != null) false else listToDisplay.isEmpty()
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(colorResource(R.color.black2))
     ) {
-        androidx.compose.foundation.layout.Column {
+        Column {
             TopTile(
                 title = if (mode == "popular") "Popular" else "Nearest",
                 onBackClick = onBackClick
             )
 
-            if (isLoading) {
+            if (isLoading && listToDisplay.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
@@ -67,9 +68,10 @@ fun AllStoresScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(list.size) { index ->
-                        val item = list[index]
+                    items(listToDisplay.size) { index ->
+                        val item = listToDisplay[index]
                         Box(modifier = Modifier.fillMaxWidth()) {
+                            // ItemsPopular afișează automat distanța dacă ea există în obiectul item
                             ItemsPopular(
                                 item = item,
                                 isFavorite = isStoreFavorite(item),

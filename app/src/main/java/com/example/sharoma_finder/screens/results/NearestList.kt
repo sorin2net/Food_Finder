@@ -3,16 +3,7 @@ package com.example.sharoma_finder.screens.results
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -41,54 +32,79 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.StoreModel
+import java.util.Locale
 
 @Composable
-fun StoreDetail(item: StoreModel){
-    Column(modifier=Modifier
-        .fillMaxWidth()
-        .padding(start=8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+fun StoreDetail(item: StoreModel) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp) // Am redus spațierea puțin
     ) {
         Text(
-            text=item.Title,
-            color= Color.White,
+            text = item.Title,
+            color = Color.White,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            maxLines=1
+            maxLines = 1
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Image(painter= painterResource(id= R.drawable.location),
-                contentDescription = null)
+            Image(
+                painter = painterResource(id = R.drawable.location),
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
             Text(
-                text=item.Address,
-                color=Color.White,
-                fontSize=12.sp,
-                maxLines=1,
-                modifier = Modifier.padding(start=4.dp)
+                text = item.Address,
+                color = Color.White,
+                fontSize = 12.sp,
+                maxLines = 1,
+                modifier = Modifier.padding(start = 4.dp)
             )
         }
-        Text(text=item.Activity,
-            color=Color.White,
-            fontSize=14.sp,
+
+        // --- AICI ESTE MODIFICAREA PENTRU DISTANȚĂ ---
+        // Afișăm distanța doar dacă a fost calculată (e mai mare ca 0)
+        if (item.distanceToUser > 0) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    // Convertim metri în km și formatăm cu 2 zecimale (ex: 0.01 km sau 2.50 km)
+                    text = String.format(Locale.US, "%.2f km away", item.distanceToUser / 1000),
+                    color = colorResource(R.color.gold), // O facem aurie să iasă în evidență
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+        // ---------------------------------------------
+
+        Text(
+            text = item.Activity,
+            color = Color.White,
+            fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            maxLines=1)
-        Text(text="Hours: ${item.Hours}",
-            color=Color.White,
-            fontSize=14.sp,
+            maxLines = 1
+        )
+        Text(
+            text = "Hours: ${item.Hours}",
+            color = Color.White,
+            fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            maxLines=1)
+            maxLines = 1
+        )
     }
 }
 
 @Composable
-fun StoreImage(item:StoreModel){
+fun StoreImage(item: StoreModel) {
     AsyncImage(
-        model=item.ImagePath,
+        model = item.ImagePath,
         contentDescription = null,
         modifier = Modifier
             .size(95.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(colorResource(R.color.grey),shape=RoundedCornerShape(10.dp)),
+            .background(colorResource(R.color.grey), shape = RoundedCornerShape(10.dp)),
         contentScale = ContentScale.Crop
     )
 }
@@ -114,9 +130,11 @@ fun ItemsNearest(
 
         StoreImage(item = item)
 
-        Box(modifier = Modifier
-            .weight(1f)
-            .padding(end = 8.dp)) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp)
+        ) {
             StoreDetail(item = item)
         }
 
@@ -195,11 +213,23 @@ fun NearestList(
 
 @Preview
 @Composable
-fun NearestListPreview(){
+fun NearestListPreview() {
     val list = remember {
         androidx.compose.runtime.mutableStateListOf(
-            StoreModel(Title="Store 1", Address="123 Main St", ShortAddress = "Main St", Activity = "Retail", Hours = "9am"),
-            StoreModel(Title="Store 2", Address="456 Oak St", ShortAddress = "Oak St", Activity = "Cafe", Hours = "7am")
+            StoreModel(
+                Title = "Store 1",
+                Address = "123 Main St",
+                ShortAddress = "Main St",
+                Activity = "Retail",
+                Hours = "9am"
+            ),
+            StoreModel(
+                Title = "Store 2",
+                Address = "456 Oak St",
+                ShortAddress = "Oak St",
+                Activity = "Cafe",
+                Hours = "7am"
+            )
         )
     }
     NearestList(
@@ -214,15 +244,26 @@ fun NearestListPreview(){
 
 @Preview
 @Composable
-fun ItemsNearestPreview()
-{
-    val item=StoreModel(Title="Store Title", Address="123 Main St", ShortAddress = "Main St", Activity = "test", Hours = "9am")
-    ItemsNearest(item=item, isFavorite = false, onFavoriteClick = {}, onClick = {})
+fun ItemsNearestPreview() {
+    val item = StoreModel(
+        Title = "Store Title",
+        Address = "123 Main St",
+        ShortAddress = "Main St",
+        Activity = "test",
+        Hours = "9am"
+    )
+    ItemsNearest(item = item, isFavorite = false, onFavoriteClick = {}, onClick = {})
 }
 
 @Preview
 @Composable
-fun StoreDetailPreview(){
-    val item=StoreModel(Title="Store Title", Address="123 Main St", ShortAddress = "Main St", Activity="test", Hours="9am")
+fun StoreDetailPreview() {
+    val item = StoreModel(
+        Title = "Store Title",
+        Address = "123 Main St",
+        ShortAddress = "Main St",
+        Activity = "test",
+        Hours = "9am"
+    )
     StoreDetail(item)
 }

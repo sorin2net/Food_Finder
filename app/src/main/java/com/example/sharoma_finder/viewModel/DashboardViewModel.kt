@@ -48,7 +48,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     var userImagePath = mutableStateOf<String?>(null)
 
     // --- 4. LOCAȚIA UTILIZATORULUI (GPS) ---
-    private var currentUserLocation: Location? = null
+    // AM SCOS "private" DE AICI. Acum e accesibilă din MainActivity.
+    var currentUserLocation: Location? = null
+        private set // Putem lăsa asta ca să fie modificată doar din interiorul clasei, dar citită de oriunde
 
     init {
         Log.d("DashboardViewModel", "=== INIT START ===")
@@ -57,6 +59,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         // Pornim descărcarea datelor (Load All pentru GPS)
         loadInitialData()
+    }
+
+    // --- FUNCȚIE NOUĂ: Expunem lista completă pentru Search (ResultList) ---
+    fun getGlobalStoreList(): List<StoreModel> {
+        return allStoresRaw
     }
 
     // --- LOGICA DE ÎNCĂRCARE ȘI GPS ---
@@ -185,9 +192,16 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val favorites = allStoresRaw.filter { store ->
             favoriteStoreIds.contains(store.getUniqueId())
         }
+
+        // Sortăm și favoritele după distanță
+        // Dacă distanța e -1 (necalculată), le punem la final
+        val sortedFavorites = favorites.sortedBy {
+            if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
+        }
+
         favoriteStores.clear()
-        favoriteStores.addAll(favorites)
-        Log.d("DashboardViewModel", "🔄 Wishlist updated: ${favoriteStores.size} stores shown")
+        favoriteStores.addAll(sortedFavorites)
+        Log.d("DashboardViewModel", "🔄 Wishlist updated & sorted: ${favoriteStores.size} stores shown")
     }
 
     fun isFavorite(store: StoreModel): Boolean = favoriteStoreIds.contains(store.getUniqueId())

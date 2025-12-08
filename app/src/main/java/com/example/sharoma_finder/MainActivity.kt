@@ -136,18 +136,33 @@ fun MainApp() {
                     backStack.add(Screen.ViewAll(screen.id, mode))
                 },
                 isStoreFavorite = { store -> dashboardViewModel.isFavorite(store) },
-                onFavoriteToggle = { store -> dashboardViewModel.toggleFavorite(store) }
+                onFavoriteToggle = { store -> dashboardViewModel.toggleFavorite(store) },
+
+                // --- AICI TRIMITEM LISTA COMPLETĂ PENTRU SEARCH ---
+                allGlobalStores = dashboardViewModel.getGlobalStoreList(),
+
+                // --- AICI TRIMITEM LOCAȚIA PENTRU CALCUL DISTANȚĂ ---
+                userLocation = dashboardViewModel.currentUserLocation
             )
         }
         is Screen.ViewAll -> {
-            // AICI FOLOSIM LISTA SORTATA DACA E MODUL NEAREST
+            // Verificăm dacă userul a dat click pe "See All" la Nearest
+            val listToSend = if (screen.mode == "nearest" || screen.mode == "nearest_all") {
+                dashboardViewModel.nearestStoresAllSorted
+            } else {
+                null
+            }
+
             AllStoresScreen(
                 categoryId = screen.id,
                 mode = screen.mode,
                 onBackClick = { popBackStack() },
                 onStoreClick = { store -> backStack.add(Screen.Map(store)) },
                 isStoreFavorite = { store -> dashboardViewModel.isFavorite(store) },
-                onFavoriteToggle = { store -> dashboardViewModel.toggleFavorite(store) }
+                onFavoriteToggle = { store -> dashboardViewModel.toggleFavorite(store) },
+
+                // --- AICI TRIMITEM LISTA SORTATĂ DACĂ EXISTĂ ---
+                preLoadedList = listToSend
             )
         }
         is Screen.Map -> {

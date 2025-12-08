@@ -1,24 +1,13 @@
 package com.example.sharoma_finder.screens.results
 
+import android.location.Location
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items // Important pentru Grid
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,10 +21,6 @@ import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.repository.Resource
 import com.example.sharoma_finder.viewModel.ResultsViewModel
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 
 @Composable
 fun ResultList(
@@ -45,11 +30,14 @@ fun ResultList(
     onStoreClick: (StoreModel) -> Unit,
     onSeeAllClick: (String) -> Unit,
     isStoreFavorite: (StoreModel) -> Boolean,
-    onFavoriteToggle: (StoreModel) -> Unit
+    onFavoriteToggle: (StoreModel) -> Unit,
+    // Lista globală pentru Search
+    allGlobalStores: List<StoreModel> = emptyList(),
+    // --- PARAMETRU NOU: Locația utilizatorului ---
+    userLocation: Location? = null
 ) {
     val viewModel: ResultsViewModel = viewModel()
 
-    // 1. Starea textului de căutare este acum aici, în părinte
     var searchText by rememberSaveable { mutableStateOf("") }
     var selectedCategoryName by remember { mutableStateOf("") }
 
@@ -65,37 +53,52 @@ fun ResultList(
     val showPopularLoading = popularState is Resource.Loading
     val showNearestLoading = nearestState is Resource.Loading
 
-    // Convertim în snapshot pentru UI-ul vechi
-    val subCategorySnapshot = remember(subCategoryList) { listToSnapshot(subCategoryList) }
-    val popularSnapshot = remember(popularList) { listToSnapshot(popularList) }
-    val nearestSnapshot = remember(nearestList) { listToSnapshot(nearestList) }
-
-    // 2. Logică pentru CĂUTARE GLOBALĂ (combinăm listele și eliminăm duplicatele)
-    val allCombinedStores = remember(popularList, nearestList) {
-        (popularList + nearestList).distinctBy { it.getUniqueId() }
+    // --- LOGICA DE CALCUL DISTANȚĂ PENTRU LISTELE LOCALE ---
+    // Deoarece popularList și nearestList sunt descărcate din nou aici, nu au distanța calculată.
+    // O calculăm acum folosind userLocation primit din MainActivity.
+    LaunchedEffect(popularList, nearestList, userLocation) {
+        if (userLocation != null) {
+            val calcDist = { store: StoreModel ->
+                val storeLoc = Location("store")
+                storeLoc.latitude = store.Latitude
+                storeLoc.longitude = store.Longitude
+                store.distanceToUser = userLocation.distanceTo(storeLoc)
+            }
+            popularList.forEach { calcDist(it) }
+            nearestList.forEach { calcDist(it) }
+        }
     }
 
-    // 3. Logică de filtrare bazată pe textul scris
-    val searchResults = remember(searchText, allCombinedStores) {
+    val subCategorySnapshot = remember(subCategoryList) { listToSnapshot(subCategoryList) }
+
+    // Reconstruim snapshot-urile când se schimbă locația sau listele
+    val popularSnapshot = remember(popularList, userLocation) { listToSnapshot(popularList) }
+
+    // Pentru Nearest, le și sortăm după distanță
+    val nearestSnapshot = remember(nearestList, userLocation) {
+        val sorted = if (userLocation != null) nearestList.sortedBy { it.distanceToUser } else nearestList
+        listToSnapshot(sorted)
+    }
+
+    // --- LOGICA DE CĂUTARE SORTATĂ DUPĂ DISTANȚĂ ---
+    val searchResults = remember(searchText, allGlobalStores) {
         if (searchText.isEmpty()) {
             emptyList()
         } else {
-            allCombinedStores.filter { store ->
+            allGlobalStores.filter { store ->
                 store.Title.contains(searchText, ignoreCase = true) ||
                         store.Address.contains(searchText, ignoreCase = true)
+            }.sortedBy {
+                if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
             }
         }
     }
 
-    // Design-ul paginii
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(color = colorResource(R.color.black2))
+        modifier = Modifier.fillMaxSize().background(color = colorResource(R.color.black2))
     ) {
         item { TopTile(title, onBackClick) }
 
-        // 4. Conectăm bara de search la variabila locală searchText
         item {
             Search(
                 text = searchText,
@@ -103,7 +106,6 @@ fun ResultList(
             )
         }
 
-        // 5. LOGICA DE AFIȘARE: Dacă avem text în search, arătăm rezultatele. Altfel, arătăm ecranul normal.
         if (searchText.isNotEmpty()) {
             item {
                 Text(
@@ -122,16 +124,11 @@ fun ResultList(
                     }
                 }
             } else {
-                // Afișăm rezultatele ca un Grid (două pe rând)
-                // Folosim un truc pentru a pune Grid-ul într-un LazyColumn item
                 item {
-                    // Calculăm înălțimea necesară sau folosim un flow layout
-                    // Dar cea mai simplă metodă într-un LazyColumn este să afișăm rând cu rând manual sau VerticalGrid
-                    // Aici folosim flow-ul manual pentru a nu avea erori de nested scrolling
                     val rows = searchResults.chunked(2)
                     Column(Modifier.padding(16.dp)) {
                         rows.forEach { rowItems ->
-                            androidx.compose.foundation.layout.Row(
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
@@ -145,20 +142,16 @@ fun ResultList(
                                         )
                                     }
                                 }
-                                // Dacă e număr impar, adăugăm un spațiu gol
-                                if (rowItems.size < 2) {
-                                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
-                                }
+                                if (rowItems.size < 2) Spacer(modifier = Modifier.weight(1f))
                             }
-                            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
                         }
                     }
                 }
             }
 
         } else {
-            // --- ECRANUL ORIGINAL (Subcategorii, Popular, Nearest) ---
-
+            // --- ECRANUL STANDARD (Fără Căutare) ---
             item {
                 SubCategory(
                     subCategory = subCategorySnapshot,
@@ -170,14 +163,11 @@ fun ResultList(
                 )
             }
 
-
             val filteredPopular = if (selectedCategoryName.isEmpty()) popularSnapshot else listToSnapshot(popularList.filter { it.Activity.equals(selectedCategoryName, ignoreCase = true) })
             val filteredNearest = if (selectedCategoryName.isEmpty()) nearestSnapshot else listToSnapshot(nearestList.filter { it.Activity.equals(selectedCategoryName, ignoreCase = true) })
 
             item {
-                if (!showPopularLoading && filteredPopular.isEmpty()) {
-
-                } else {
+                if (!showPopularLoading && filteredPopular.isNotEmpty()) {
                     PopularSection(
                         list = filteredPopular,
                         showPopularLoading = showPopularLoading,
@@ -190,9 +180,7 @@ fun ResultList(
             }
 
             item {
-                if (!showNearestLoading && filteredNearest.isEmpty()) {
-
-                } else {
+                if (!showNearestLoading && filteredNearest.isNotEmpty()) {
                     NearestList(
                         list = filteredNearest,
                         showNearestLoading = showNearestLoading,
