@@ -1,6 +1,7 @@
 package com.example.sharoma_finder.viewModel
 
 import android.app.Application
+import android.location.Location
 import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -13,48 +14,150 @@ import com.example.sharoma_finder.repository.DashboardRepository
 import com.example.sharoma_finder.repository.FavoritesManager
 import com.example.sharoma_finder.repository.Resource
 import com.example.sharoma_finder.repository.ResultsRepository
-import com.example.sharoma_finder.repository.UserManager // Asigură-te că ai acest import
+import com.example.sharoma_finder.repository.UserManager
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = DashboardRepository()
     private val resultsRepository = ResultsRepository()
     private val favoritesManager = FavoritesManager(application.applicationContext)
-
-    // --- 1. MANAGER PENTRU PROFIL (NOU) ---
     private val userManager = UserManager(application.applicationContext)
 
-    // Listele pentru UI (Magazine)
+    // --- 1. LISTE PENTRU UI ---
     val favoriteStoreIds = mutableStateListOf<String>()
     val favoriteStores = mutableStateListOf<StoreModel>()
 
-    // Lista internă cu toate magazinele descărcate
-    private val allStores = mutableStateListOf<StoreModel>()
+    // Lista Nearest pentru Dashboard (Top 5 cele mai apropiate)
+    val nearestStoresTop5 = mutableStateListOf<StoreModel>()
 
-    // Variabila care controlează Loading-ul din Wishlist
+    // Lista Nearest COMPLETĂ și SORTATĂ (pentru See All)
+    val nearestStoresAllSorted = mutableStateListOf<StoreModel>()
+
+    // --- 2. LISTE INTERNE TEMPORARE (pentru procesare) ---
+    // Lista finală unificată pentru calcule
+    private val allStoresRaw = mutableListOf<StoreModel>()
+    // Liste temporare pentru a stoca datele pe măsură ce vin din Firebase
+    private val tempStoreList = mutableListOf<StoreModel>()
+    private val tempNearestList = mutableListOf<StoreModel>()
+
+    // Variabila care controlează Loading-ul din Wishlist și Nearest
     val isDataLoaded = mutableStateOf(false)
 
-    // --- 2. VARIABILE PENTRU PROFIL (NOU) ---
-    // Folosim mutableStateOf pentru ca UI-ul (TopBar, ProfileScreen) să se actualizeze instantaneu
+    // --- 3. VARIABILE PENTRU PROFIL ---
     var userName = mutableStateOf("Costi")
     var userImagePath = mutableStateOf<String?>(null)
 
+    // --- 4. LOCAȚIA UTILIZATORULUI (GPS) ---
+    private var currentUserLocation: Location? = null
+
     init {
         Log.d("DashboardViewModel", "=== INIT START ===")
-
-        // Încărcăm datele utilizatorului la pornire
         loadUserData()
-
-        // Încărcăm favoritele și magazinele
         loadFavorites()
-        loadAllStoresData()
+
+        // Pornim descărcarea datelor (Load All pentru GPS)
+        loadInitialData()
     }
 
-    // --- 3. FUNCȚII PENTRU PROFIL (NOU) ---
+    // --- LOGICA DE ÎNCĂRCARE ȘI GPS ---
+
+    private fun loadInitialData() {
+        // 1. Încărcăm nodul "Stores"
+        resultsRepository.loadAllStoresForGPS().observeForever { resource ->
+            if (resource is Resource.Success) {
+                resource.data?.let { list ->
+                    tempStoreList.clear()
+                    tempStoreList.addAll(list)
+                    combineAndRefresh() // Încercăm să combinăm datele
+                }
+            }
+        }
+
+        // 2. Încărcăm nodul "Nearest"
+        resultsRepository.loadAllNearestForGPS().observeForever { resource ->
+            if (resource is Resource.Success) {
+                resource.data?.let { list ->
+                    tempNearestList.clear()
+                    tempNearestList.addAll(list)
+                    combineAndRefresh() // Încercăm să combinăm datele
+                }
+            }
+        }
+    }
+
+    // Funcție care unește cele două surse de date (Stores + Nearest)
+    private fun combineAndRefresh() {
+        // 1. Punem toate magazinele din "Stores"
+        allStoresRaw.clear()
+        allStoresRaw.addAll(tempStoreList)
+
+        // 2. Adăugăm magazinele din "Nearest", dar verificăm să nu fie duplicate
+        tempNearestList.forEach { nearestItem ->
+            // Folosim getUniqueId() care include categoryId și Id sau firebaseKey
+            if (allStoresRaw.none { it.getUniqueId() == nearestItem.getUniqueId() }) {
+                allStoresRaw.add(nearestItem)
+            }
+        }
+
+        Log.d("DashboardVM", "📦 Total stores combined: ${allStoresRaw.size}")
+
+        // 3. Recalculăm distanțele dacă avem GPS, altfel afișăm datele brute
+        if (currentUserLocation != null) {
+            recalculateDistances()
+        } else {
+            // Fallback dacă nu avem GPS: arătăm primele 5 așa cum sunt
+            nearestStoresTop5.clear()
+            nearestStoresTop5.addAll(allStoresRaw.take(5))
+        }
+
+        isDataLoaded.value = true
+        updateFavoriteStores()
+    }
+
+    // Apelată din MainActivity când GPS-ul ne dă locația
+    fun updateUserLocation(location: Location) {
+        currentUserLocation = location
+        Log.d("DashboardVM", "📍 User location updated: ${location.latitude}, ${location.longitude}")
+        recalculateDistances()
+    }
+
+    private fun recalculateDistances() {
+        val location = currentUserLocation ?: return
+        if (allStoresRaw.isEmpty()) return
+
+        Log.d("DashboardVM", "📏 Calculating distances for ${allStoresRaw.size} stores...")
+
+        // 1. Calculăm distanța pentru fiecare magazin
+        allStoresRaw.forEach { store ->
+            val storeLoc = Location("store")
+            storeLoc.latitude = store.Latitude
+            storeLoc.longitude = store.Longitude
+
+            // Distanța în metri
+            store.distanceToUser = location.distanceTo(storeLoc)
+        }
+
+        // 2. Sortăm crescător după distanță (cel mai mic -> cel mai mare)
+        val sortedList = allStoresRaw.sortedBy { it.distanceToUser }
+
+        // 3. Actualizăm listele pentru UI
+        nearestStoresAllSorted.clear()
+        nearestStoresAllSorted.addAll(sortedList)
+
+        nearestStoresTop5.clear()
+        nearestStoresTop5.addAll(sortedList.take(5))
+
+        Log.d("DashboardVM", "✅ Nearest list updated. Closest: ${sortedList.firstOrNull()?.Title}")
+
+        // Re-actualizăm favoritele pentru că obiectele din allStoresRaw s-au schimbat (au primit distanță)
+        updateFavoriteStores()
+    }
+
+    // --- LOGICA PENTRU PROFIL ---
+
     private fun loadUserData() {
         userName.value = userManager.getName()
         userImagePath.value = userManager.getImagePath()
-        Log.d("DashboardViewModel", "User loaded: ${userName.value}, Image: ${userImagePath.value}")
     }
 
     fun updateUserName(newName: String) {
@@ -63,104 +166,34 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun updateUserImage(uri: android.net.Uri) {
-        // 1. Copiem imaginea în memoria internă a aplicației (prin UserManager)
         val internalPath = userManager.copyImageToInternalStorage(uri)
-
-        // 2. Actualizăm starea și salvăm calea dacă operațiunea a reușit
         if (internalPath != null) {
             userImagePath.value = internalPath
             userManager.saveImagePath(internalPath)
-            Log.d("DashboardViewModel", "Image updated successfully: $internalPath")
-        } else {
-            Log.e("DashboardViewModel", "Failed to save image")
         }
     }
 
-    // --- LOGICA EXISTENTĂ PENTRU MAGAZINE ȘI FAVORITE ---
+    // --- LOGICA PENTRU FAVORITE ---
 
     private fun loadFavorites() {
         favoriteStoreIds.clear()
-        val savedFavorites = favoritesManager.getFavorites()
-        favoriteStoreIds.addAll(savedFavorites)
-        Log.d("DashboardViewModel", "✅ Loaded ${favoriteStoreIds.size} saved favorites")
-    }
-
-    private fun loadAllStoresData() {
-        // Avem 6 cereri de făcut (Popular/Nearest pentru cat 0, 1, 2)
-        var finishedQueries = 0
-        val totalQueries = 6
-
-        // Funcție internă care verifică dacă s-a terminat tot
-        fun checkAllFinished() {
-            finishedQueries++
-
-            if (finishedQueries >= totalQueries) {
-                isDataLoaded.value = true
-                Log.d("DashboardViewModel", "🏁 ALL DATA LOADED. Hide loading spinner.")
-                updateFavoriteStores()
-            }
-        }
-
-        // Funcție helper pentru a face cererile
-        fun observeAndAdd(categoryId: String, mode: String) {
-            val liveData = if (mode == "popular") {
-                resultsRepository.loadPopular(categoryId, limit = null)
-            } else {
-                resultsRepository.loadNearest(categoryId, limit = null)
-            }
-
-            liveData.observeForever { resource ->
-                if (resource !is Resource.Loading) {
-                    if (resource is Resource.Success) {
-                        resource.data?.let { newStores ->
-                            // Adăugăm în allStores doar dacă nu există deja
-                            newStores.forEach { store ->
-                                if (allStores.none { it.getUniqueId() == store.getUniqueId() }) {
-                                    allStores.add(store)
-                                }
-                            }
-                            // Actualizăm favoritele imediat ce avem date noi (ca să apară în Wishlist instant)
-                            if (newStores.isNotEmpty()) {
-                                updateFavoriteStores()
-                            }
-                        }
-                    }
-                    // Marcăm cererea ca terminată indiferent de rezultat
-                    checkAllFinished()
-                }
-            }
-        }
-
-        // --- Încărcăm toate categoriile necesare ---
-        observeAndAdd("0", "popular")
-        observeAndAdd("0", "nearest")
-
-        observeAndAdd("1", "popular")
-        observeAndAdd("1", "nearest")
-
-        observeAndAdd("2", "popular")
-        observeAndAdd("2", "nearest")
+        favoriteStoreIds.addAll(favoritesManager.getFavorites())
     }
 
     private fun updateFavoriteStores() {
-        // Filtrăm din toate magazinele (allStores) doar pe cele care au ID-ul în lista de favorite
-        val favorites = allStores.filter { store ->
+        // Filtrăm din lista completă (allStoresRaw) doar pe cele favorite
+        val favorites = allStoresRaw.filter { store ->
             favoriteStoreIds.contains(store.getUniqueId())
         }
-
         favoriteStores.clear()
         favoriteStores.addAll(favorites)
-
-        Log.d("DashboardViewModel", "🔄 Wishlist updated: ${favoriteStores.size} stores shown.")
+        Log.d("DashboardViewModel", "🔄 Wishlist updated: ${favoriteStores.size} stores shown")
     }
 
-    fun isFavorite(store: StoreModel): Boolean {
-        return favoriteStoreIds.contains(store.getUniqueId())
-    }
+    fun isFavorite(store: StoreModel): Boolean = favoriteStoreIds.contains(store.getUniqueId())
 
     fun toggleFavorite(store: StoreModel) {
         val uniqueKey = store.getUniqueId()
-
         if (favoriteStoreIds.contains(uniqueKey)) {
             favoritesManager.removeFavorite(uniqueKey)
             favoriteStoreIds.remove(uniqueKey)
@@ -168,12 +201,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             favoritesManager.addFavorite(uniqueKey)
             favoriteStoreIds.add(uniqueKey)
         }
-
-        // Actualizăm lista de obiecte StoreModel pentru Wishlist
         updateFavoriteStores()
     }
 
-    // Funcții standard
+    // --- ALTE FUNCȚII ---
     fun loadCategory(): LiveData<MutableList<CategoryModel>> = repository.loadCategory()
     fun loadBanner(): LiveData<MutableList<BannerModel>> = repository.loadBanner()
 }

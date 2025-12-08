@@ -19,6 +19,7 @@ import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.BannerModel
 import com.example.sharoma_finder.domain.CategoryModel
 import com.example.sharoma_finder.domain.StoreModel
+import com.example.sharoma_finder.screens.results.NearestList // Asigură-te că ai acest import
 import com.example.sharoma_finder.viewModel.DashboardViewModel
 
 @Composable
@@ -65,15 +66,41 @@ fun DashboardScreen(
             when (selectedTab) {
                 "Home" -> {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        // --- MODIFICARE 1: TopBar primește datele din ViewModel ---
+                        // 1. TopBar cu datele din Profil
                         item {
                             TopBar(
                                 userName = viewModel.userName.value,
                                 userImagePath = viewModel.userImagePath.value
                             )
                         }
+
+                        // 2. Categoriile
                         item { CategorySection(categories, showCategoryLoading, onCategoryClick) }
+
+                        // 3. Bannerul
                         item { Banner(banners, showBannerLoading) }
+
+                        // 4. NEAREST LIST (Lista reală cu GPS)
+                        item {
+                            // Luăm lista sortată din ViewModel
+                            val nearestList = viewModel.nearestStoresTop5
+
+                            // O afișăm doar dacă avem date (sau dacă se încarcă)
+                            if (nearestList.isNotEmpty() || !viewModel.isDataLoaded.value) {
+                                NearestList(
+                                    list = nearestList,
+                                    // Folosim variabila isDataLoaded pentru a arăta spinner-ul dacă încă se calculează GPS-ul
+                                    showNearestLoading = !viewModel.isDataLoaded.value,
+                                    onStoreClick = onStoreClick,
+                                    onSeeAllClick = {
+                                        // Aici poți implementa navigarea către o listă completă "See All Nearest"
+                                        // onCategoryClick("nearest_all", "Nearest Stores")
+                                    },
+                                    isStoreFavorite = { store -> viewModel.isFavorite(store) },
+                                    onFavoriteToggle = { store -> viewModel.toggleFavorite(store) }
+                                )
+                            }
+                        }
                     }
                 }
                 "Support" -> SupportScreen()
@@ -87,7 +114,6 @@ fun DashboardScreen(
                     )
                 }
                 "Profile" -> {
-                    // --- MODIFICARE 2: Afișăm ecranul real de profil ---
                     ProfileScreen(viewModel = viewModel)
                 }
             }

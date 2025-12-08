@@ -66,4 +66,5 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
     implementation("androidx.compose.runtime:runtime-livedata:1.5.4")
     implementation("androidx.compose.material:material-icons-extended:1.5.4")
+    implementation("com.google.android.gms:play-services-location:21.0.1")
 }

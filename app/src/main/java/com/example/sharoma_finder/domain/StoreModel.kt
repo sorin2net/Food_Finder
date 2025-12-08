@@ -18,11 +18,14 @@ data class StoreModel(
     var firebaseKey: String = ""
 ) : Serializable {
 
+
+    var distanceToUser: Float = -1f
+
+
     fun getUniqueId(): String {
         return if (firebaseKey.isNotEmpty()) {
             firebaseKey
         } else {
-
             "${CategoryId}_${Id}"
         }
     }

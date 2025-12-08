@@ -1,16 +1,21 @@
 package com.example.sharoma_finder
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect // Import necesar
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
-import androidx.core.view.WindowInsetsControllerCompat // Import necesar
+import androidx.core.app.ActivityCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.screens.dashboard.DashboardScreen
@@ -19,11 +24,35 @@ import com.example.sharoma_finder.screens.results.AllStoresScreen
 import com.example.sharoma_finder.screens.results.ResultList
 import com.example.sharoma_finder.viewModel.DashboardViewModel
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import com.google.android.gms.location.LocationServices
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Cerem permisiunile la start
+        val locationPermissionRequest = registerForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { permissions ->
+            when {
+                permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
+                    // Avem locatie precisa
+                }
+                permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
+                    // Avem locatie aproximativa
+                }
+                else -> {
+                    // Nu avem permisiune
+                }
+            }
+        }
+
+        locationPermissionRequest.launch(arrayOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ))
+
         setContent {
             MainApp()
         }
@@ -40,22 +69,37 @@ sealed class Screen {
 @Composable
 fun MainApp() {
     val systemUiController = rememberSystemUiController()
+    val context = LocalContext.current
+    val dashboardViewModel: DashboardViewModel = viewModel()
 
-    // --- COD NOU: ASCUNDEREA BAREI DE JOS (IMMERSIVE MODE) ---
+    // Immersive Mode
     LaunchedEffect(Unit) {
-        // Ascunde bara de navigație (butoanele de jos: Back, Home, Recents)
         systemUiController.isNavigationBarVisible = false
-
-        // Setează comportamentul: bara apare semi-transparentă la swipe și dispare singură
         systemUiController.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
-    // ---------------------------------------------------------
 
-    // Setăm culoarea barei de status (cea de sus, cu ora/bateria)
+    // --- LOGICA GPS ---
+    LaunchedEffect(Unit) {
+        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+
+        if (ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED || ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null) {
+                    dashboardViewModel.updateUserLocation(location)
+                }
+            }
+        }
+    }
+
     systemUiController.setStatusBarColor(color = colorResource(R.color.white))
-
-    val dashboardViewModel: DashboardViewModel = viewModel()
 
     val backStack = remember { mutableStateListOf<Screen>(Screen.Dashboard) }
     val currentScreen = backStack.last()
@@ -96,6 +140,7 @@ fun MainApp() {
             )
         }
         is Screen.ViewAll -> {
+            // AICI FOLOSIM LISTA SORTATA DACA E MODUL NEAREST
             AllStoresScreen(
                 categoryId = screen.id,
                 mode = screen.mode,

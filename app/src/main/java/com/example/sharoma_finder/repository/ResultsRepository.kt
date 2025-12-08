@@ -14,6 +14,60 @@ import com.google.firebase.database.ValueEventListener
 class ResultsRepository {
     private val firebaseDatabase = FirebaseDatabase.getInstance()
 
+    // --- 1. Încărcăm TOATE din 'Stores' (cu cheia 'popular_') ---
+    fun loadAllStoresForGPS(): LiveData<Resource<MutableList<StoreModel>>> {
+        val listData = MutableLiveData<Resource<MutableList<StoreModel>>>()
+        listData.value = Resource.Loading()
+
+        val ref = firebaseDatabase.getReference("Stores")
+        ref.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val lists = mutableListOf<StoreModel>()
+                for (child in snapshot.children) {
+                    val model = child.getValue(StoreModel::class.java)
+                    if (model != null) {
+                        // IMPORTANT: Folosim "popular_" pentru a ne potrivi cu restul aplicației
+                        model.firebaseKey = "popular_${child.key}"
+                        lists.add(model)
+                    }
+                }
+                listData.value = Resource.Success(lists)
+            }
+            override fun onCancelled(error: DatabaseError) {
+                listData.value = Resource.Error(error.message)
+            }
+        })
+        return listData
+    }
+
+    // --- 2. Încărcăm TOATE din 'Nearest' (cu cheia 'nearest_') ---
+    fun loadAllNearestForGPS(): LiveData<Resource<MutableList<StoreModel>>> {
+        val listData = MutableLiveData<Resource<MutableList<StoreModel>>>()
+        listData.value = Resource.Loading()
+
+        val ref = firebaseDatabase.getReference("Nearest")
+        ref.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val lists = mutableListOf<StoreModel>()
+                for (child in snapshot.children) {
+                    val model = child.getValue(StoreModel::class.java)
+                    if (model != null) {
+                        // Folosim "nearest_"
+                        model.firebaseKey = "nearest_${child.key}"
+                        lists.add(model)
+                    }
+                }
+                listData.value = Resource.Success(lists)
+            }
+            override fun onCancelled(error: DatabaseError) {
+                listData.value = Resource.Error(error.message)
+            }
+        })
+        return listData
+    }
+
+    // --- FUNCȚIILE VECHI PENTRU FILTRARE (Rămân la fel) ---
+
     fun loadSubCategory(id: String): LiveData<Resource<MutableList<CategoryModel>>> {
         val listData = MutableLiveData<Resource<MutableList<CategoryModel>>>()
         listData.value = Resource.Loading()
@@ -25,15 +79,11 @@ class ResultsRepository {
                 val lists = mutableListOf<CategoryModel>()
                 for (child in snapshot.children) {
                     val model = child.getValue(CategoryModel::class.java)
-                    if (model != null) {
-                        lists.add(model)
-                    }
+                    if (model != null) lists.add(model)
                 }
                 listData.value = Resource.Success(lists)
             }
-            override fun onCancelled(error: DatabaseError) {
-                listData.value = Resource.Error(error.message)
-            }
+            override fun onCancelled(error: DatabaseError) { listData.value = Resource.Error(error.message) }
         })
         return listData
     }
@@ -41,13 +91,9 @@ class ResultsRepository {
     fun loadPopular(id: String, limit: Int? = null): LiveData<Resource<MutableList<StoreModel>>> {
         val listData = MutableLiveData<Resource<MutableList<StoreModel>>>()
         listData.value = Resource.Loading()
-
         val ref = firebaseDatabase.getReference("Stores")
         var query: Query = ref.orderByChild("CategoryId").equalTo(id)
-
-        if (limit != null) {
-            query = query.limitToFirst(limit)
-        }
+        if (limit != null) query = query.limitToFirst(limit)
 
         query.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -55,17 +101,13 @@ class ResultsRepository {
                 for (child in snapshot.children) {
                     val model = child.getValue(StoreModel::class.java)
                     if (model != null) {
-                        // IMPORTANT: Setează cheia Firebase unică
                         model.firebaseKey = "popular_${child.key}"
                         lists.add(model)
-                        Log.d("ResultsRepository", "Popular Store: ${model.Title}, Key: ${model.firebaseKey}")
                     }
                 }
                 listData.value = Resource.Success(lists)
             }
-            override fun onCancelled(error: DatabaseError) {
-                listData.value = Resource.Error(error.message)
-            }
+            override fun onCancelled(error: DatabaseError) { listData.value = Resource.Error(error.message) }
         })
         return listData
     }
@@ -73,13 +115,9 @@ class ResultsRepository {
     fun loadNearest(id: String, limit: Int? = null): LiveData<Resource<MutableList<StoreModel>>> {
         val listData = MutableLiveData<Resource<MutableList<StoreModel>>>()
         listData.value = Resource.Loading()
-
         val ref = firebaseDatabase.getReference("Nearest")
         var query: Query = ref.orderByChild("CategoryId").equalTo(id)
-
-        if (limit != null) {
-            query = query.limitToFirst(limit)
-        }
+        if (limit != null) query = query.limitToFirst(limit)
 
         query.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -87,17 +125,13 @@ class ResultsRepository {
                 for (child in snapshot.children) {
                     val model = child.getValue(StoreModel::class.java)
                     if (model != null) {
-                        // IMPORTANT: Setează cheia Firebase unică (diferită de Popular)
                         model.firebaseKey = "nearest_${child.key}"
                         lists.add(model)
-                        Log.d("ResultsRepository", "Nearest Store: ${model.Title}, Key: ${model.firebaseKey}")
                     }
                 }
                 listData.value = Resource.Success(lists)
             }
-            override fun onCancelled(error: DatabaseError) {
-                listData.value = Resource.Error(error.message)
-            }
+            override fun onCancelled(error: DatabaseError) { listData.value = Resource.Error(error.message) }
         })
         return listData
     }
