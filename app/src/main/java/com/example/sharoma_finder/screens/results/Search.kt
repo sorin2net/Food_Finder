@@ -8,14 +8,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.Text
 import androidx.compose.material.TextField
 import androidx.compose.material.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sharoma_finder.R
@@ -25,9 +29,15 @@ fun Search(
     text: String,
     onValueChange: (String) -> Unit
 ) {
+    val focusManager = LocalFocusManager.current
+
     TextField(
         value = text,
-        onValueChange = onValueChange,
+        onValueChange = { newText ->
+            // ✅ Filtrăm caracterele newline/enter
+            val cleanText = newText.replace("\n", "").replace("\r", "")
+            onValueChange(cleanText)
+        },
         label = {
             Text(
                 text = "Find stores, restaurants, products...",
@@ -35,6 +45,19 @@ fun Search(
                 color = Color.White
             )
         },
+        // ✅ ADĂUGAT: Configurăm tastatura să aibă buton de Search
+        keyboardOptions = KeyboardOptions(
+            imeAction = ImeAction.Search
+        ),
+        // ✅ ADĂUGAT: Ascundem tastatura când user-ul apasă Search/Enter
+        keyboardActions = KeyboardActions(
+            onSearch = {
+                focusManager.clearFocus()
+            }
+        ),
+        // ✅ IMPORTANT: maxLines = 1 previne enter-ul să creeze linii noi
+        maxLines = 1,
+        singleLine = true,
         shape = RoundedCornerShape(10.dp),
         leadingIcon = {
             Image(

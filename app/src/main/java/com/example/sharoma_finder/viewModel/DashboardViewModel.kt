@@ -30,17 +30,17 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     // Lista Nearest pentru Dashboard (Top 5 cele mai apropiate)
     val nearestStoresTop5 = mutableStateListOf<StoreModel>()
 
+    // Lista Popular pentru Dashboard (cele marcate cu IsPopular)
+    val popularStores = mutableStateListOf<StoreModel>()
+
     // Lista Nearest COMPLETĂ și SORTATĂ (pentru See All)
     val nearestStoresAllSorted = mutableStateListOf<StoreModel>()
 
-    // --- 2. LISTE INTERNE TEMPORARE (pentru procesare) ---
-    // Lista finală unificată pentru calcule
+    // --- 2. LISTE INTERNE TEMPORARE ---
+    // Lista finală unificată (MASTER)
     private val allStoresRaw = mutableListOf<StoreModel>()
-    // Liste temporare pentru a stoca datele pe măsură ce vin din Firebase
-    private val tempStoreList = mutableListOf<StoreModel>()
-    private val tempNearestList = mutableListOf<StoreModel>()
 
-    // Variabila care controlează Loading-ul din Wishlist și Nearest
+    // Variabila care controlează Loading-ul
     val isDataLoaded = mutableStateOf(false)
 
     // --- 3. VARIABILE PENTRU PROFIL ---
@@ -48,16 +48,16 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     var userImagePath = mutableStateOf<String?>(null)
 
     // --- 4. LOCAȚIA UTILIZATORULUI (GPS) ---
-    // AM SCOS "private" DE AICI. Acum e accesibilă din MainActivity.
+    // Accesibilă public pentru citire (MainActivity o trimite la ResultList)
     var currentUserLocation: Location? = null
-        private set // Putem lăsa asta ca să fie modificată doar din interiorul clasei, dar citită de oriunde
+        private set
 
     init {
         Log.d("DashboardViewModel", "=== INIT START ===")
         loadUserData()
         loadFavorites()
 
-        // Pornim descărcarea datelor (Load All pentru GPS)
+        // Pornim descărcarea datelor
         loadInitialData()
     }
 
@@ -69,56 +69,27 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     // --- LOGICA DE ÎNCĂRCARE ȘI GPS ---
 
     private fun loadInitialData() {
-        // 1. Încărcăm nodul "Stores"
-        resultsRepository.loadAllStoresForGPS().observeForever { resource ->
+        // Încărcăm TOATE magazinele din nodul "Stores" (baza de date unificată)
+        resultsRepository.loadAllStores().observeForever { resource ->
             if (resource is Resource.Success) {
                 resource.data?.let { list ->
-                    tempStoreList.clear()
-                    tempStoreList.addAll(list)
-                    combineAndRefresh() // Încercăm să combinăm datele
+                    allStoresRaw.clear()
+                    allStoresRaw.addAll(list)
+
+                    Log.d("DashboardVM", "📦 Loaded ${allStoresRaw.size} total stores")
+
+                    // Procesăm datele (sortare inițială fără GPS)
+                    processData()
+
+                    // Dacă avem GPS cached, recalculăm distanțele
+                    if (currentUserLocation != null) {
+                        recalculateDistances()
+                    }
+
+                    isDataLoaded.value = true
                 }
             }
         }
-
-        // 2. Încărcăm nodul "Nearest"
-        resultsRepository.loadAllNearestForGPS().observeForever { resource ->
-            if (resource is Resource.Success) {
-                resource.data?.let { list ->
-                    tempNearestList.clear()
-                    tempNearestList.addAll(list)
-                    combineAndRefresh() // Încercăm să combinăm datele
-                }
-            }
-        }
-    }
-
-    // Funcție care unește cele două surse de date (Stores + Nearest)
-    private fun combineAndRefresh() {
-        // 1. Punem toate magazinele din "Stores"
-        allStoresRaw.clear()
-        allStoresRaw.addAll(tempStoreList)
-
-        // 2. Adăugăm magazinele din "Nearest", dar verificăm să nu fie duplicate
-        tempNearestList.forEach { nearestItem ->
-            // Folosim getUniqueId() care include categoryId și Id sau firebaseKey
-            if (allStoresRaw.none { it.getUniqueId() == nearestItem.getUniqueId() }) {
-                allStoresRaw.add(nearestItem)
-            }
-        }
-
-        Log.d("DashboardVM", "📦 Total stores combined: ${allStoresRaw.size}")
-
-        // 3. Recalculăm distanțele dacă avem GPS, altfel afișăm datele brute
-        if (currentUserLocation != null) {
-            recalculateDistances()
-        } else {
-            // Fallback dacă nu avem GPS: arătăm primele 5 așa cum sunt
-            nearestStoresTop5.clear()
-            nearestStoresTop5.addAll(allStoresRaw.take(5))
-        }
-
-        isDataLoaded.value = true
-        updateFavoriteStores()
     }
 
     // Apelată din MainActivity când GPS-ul ne dă locația
@@ -132,32 +103,44 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val location = currentUserLocation ?: return
         if (allStoresRaw.isEmpty()) return
 
-        Log.d("DashboardVM", "📏 Calculating distances for ${allStoresRaw.size} stores...")
+        Log.d("DashboardVM", "📏 Recalculating distances...")
 
         // 1. Calculăm distanța pentru fiecare magazin
         allStoresRaw.forEach { store ->
             val storeLoc = Location("store")
             storeLoc.latitude = store.Latitude
             storeLoc.longitude = store.Longitude
-
-            // Distanța în metri
             store.distanceToUser = location.distanceTo(storeLoc)
         }
 
-        // 2. Sortăm crescător după distanță (cel mai mic -> cel mai mare)
-        val sortedList = allStoresRaw.sortedBy { it.distanceToUser }
+        // 2. Re-procesăm listele cu noile distanțe
+        processData()
+    }
 
-        // 3. Actualizăm listele pentru UI
-        nearestStoresAllSorted.clear()
-        nearestStoresAllSorted.addAll(sortedList)
+    private fun processData() {
+        // A. Sortăm toată lista după distanță (crescător)
+        val sortedList = allStoresRaw.sortedBy {
+            if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
+        }
 
+        // B. Populăm Nearest Top 5
         nearestStoresTop5.clear()
         nearestStoresTop5.addAll(sortedList.take(5))
 
-        Log.d("DashboardVM", "✅ Nearest list updated. Closest: ${sortedList.firstOrNull()?.Title}")
+        // C. Populăm lista completă sortată (pentru See All)
+        nearestStoresAllSorted.clear()
+        nearestStoresAllSorted.addAll(sortedList)
 
-        // Re-actualizăm favoritele pentru că obiectele din allStoresRaw s-au schimbat (au primit distanță)
+        // D. Populăm Popular Stores (filtrăm după IsPopular din lista deja sortată/calculată)
+        // --- AICI ERA PROBLEMA ANTERIOARĂ: Acum luăm din 'sortedList' care are distanțele calculate ---
+        val popular = sortedList.filter { it.IsPopular }
+        popularStores.clear()
+        popularStores.addAll(popular)
+
+        // E. Actualizăm favoritele (ca să aibă și ele distanța actualizată)
         updateFavoriteStores()
+
+        Log.d("DashboardVM", "✅ Data processed. Nearest: ${nearestStoresTop5.size}, Popular: ${popularStores.size}")
     }
 
     // --- LOGICA PENTRU PROFIL ---
@@ -194,7 +177,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
 
         // Sortăm și favoritele după distanță
-        // Dacă distanța e -1 (necalculată), le punem la final
         val sortedFavorites = favorites.sortedBy {
             if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
         }

@@ -15,12 +15,13 @@ data class StoreModel(
     var Hours: String = "",
     var ImagePath: String = "",
 
+    // Câmp nou pentru a identifica magazinele populare din lista unică
+    var IsPopular: Boolean = false,
     var firebaseKey: String = ""
 ) : Serializable {
 
-
+    // Distanța nu vine din baza de date, se calculează local
     var distanceToUser: Float = -1f
-
 
     fun getUniqueId(): String {
         return if (firebaseKey.isNotEmpty()) {

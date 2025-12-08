@@ -137,11 +137,7 @@ fun MainApp() {
                 },
                 isStoreFavorite = { store -> dashboardViewModel.isFavorite(store) },
                 onFavoriteToggle = { store -> dashboardViewModel.toggleFavorite(store) },
-
-                // --- AICI TRIMITEM LISTA COMPLETĂ PENTRU SEARCH ---
                 allGlobalStores = dashboardViewModel.getGlobalStoreList(),
-
-                // --- AICI TRIMITEM LOCAȚIA PENTRU CALCUL DISTANȚĂ ---
                 userLocation = dashboardViewModel.currentUserLocation
             )
         }
@@ -160,9 +156,9 @@ fun MainApp() {
                 onStoreClick = { store -> backStack.add(Screen.Map(store)) },
                 isStoreFavorite = { store -> dashboardViewModel.isFavorite(store) },
                 onFavoriteToggle = { store -> dashboardViewModel.toggleFavorite(store) },
-
-                // --- AICI TRIMITEM LISTA SORTATĂ DACĂ EXISTĂ ---
-                preLoadedList = listToSend
+                preLoadedList = listToSend,
+                // ✅ ADĂUGAT: Trimitem locația pentru calcul distanță
+                userLocation = dashboardViewModel.currentUserLocation
             )
         }
         is Screen.Map -> {

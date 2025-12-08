@@ -31,6 +31,7 @@ fun ResultList(
     onSeeAllClick: (String) -> Unit,
     isStoreFavorite: (StoreModel) -> Boolean,
     onFavoriteToggle: (StoreModel) -> Unit,
+    // Aceasta conține TOATE magazinele cu distanța deja calculată în Dashboard
     allGlobalStores: List<StoreModel> = emptyList(),
     userLocation: Location? = null
 ) {
@@ -39,53 +40,38 @@ fun ResultList(
     var searchText by rememberSaveable { mutableStateOf("") }
     var selectedCategoryName by remember { mutableStateOf("") }
 
+    // Încărcăm doar subcategoriile (Burger, Pizza etc)
     val subCategoryState by remember(id) { viewModel.loadSubCategory(id) }.observeAsState(Resource.Loading())
-    val popularState by remember(id) { viewModel.loadPopular(id, limit = 100) }.observeAsState(Resource.Loading())
-    val nearestState by remember(id) { viewModel.loadNearest(id, limit = 100) }.observeAsState(Resource.Loading())
-
     val subCategoryList = subCategoryState.data ?: emptyList()
-    val popularList = popularState.data ?: emptyList()
-    val nearestList = nearestState.data ?: emptyList()
-
     val showSubCategoryLoading = subCategoryState is Resource.Loading
-    val showPopularLoading = popularState is Resource.Loading
-    val showNearestLoading = nearestState is Resource.Loading
-
-    // --- 1. CALCULĂM DISTANȚELE DIRECT ÎN LISTE ---
-
-    // Funcție ajutătoare pentru calcul
-    fun calculateDistanceForList(list: List<StoreModel>, location: Location?) {
-        if (location != null) {
-            list.forEach { store ->
-                val storeLoc = Location("store")
-                storeLoc.latitude = store.Latitude
-                storeLoc.longitude = store.Longitude
-                store.distanceToUser = location.distanceTo(storeLoc)
-            }
-        }
-    }
-
     val subCategorySnapshot = remember(subCategoryList) { listToSnapshot(subCategoryList) }
 
-    // Lista POPULAR: Calculăm distanța, dar păstrăm ordinea originală (de popularitate)
-    val popularSnapshot = remember(popularList, userLocation) {
-        calculateDistanceForList(popularList, userLocation)
-        listToSnapshot(popularList)
-    }
+    // --- FILTRARE DIN LISTA GLOBALĂ ---
+    // În loc să descărcăm din nou, filtrăm lista globală pentru categoria curentă (id)
 
-    // Lista NEAREST: Calculăm distanța ȘI SORTĂM crescător
-    val nearestSnapshot = remember(nearestList, userLocation) {
-        calculateDistanceForList(nearestList, userLocation)
-        // Sortăm doar dacă avem locația
-        val sortedList = if (userLocation != null) {
-            nearestList.sortedBy { it.distanceToUser }
-        } else {
-            nearestList
+    // 1. Lista Popular pentru categoria curentă
+    val categoryPopularList = remember(allGlobalStores, id) {
+        allGlobalStores.filter {
+            it.CategoryId == id && it.IsPopular
         }
-        listToSnapshot(sortedList)
     }
 
-    // --- 2. LOGICA PENTRU SEARCH (SORTATĂ DUPĂ DISTANȚĂ) ---
+    // 2. Lista Nearest pentru categoria curentă (sortată după distanță)
+    val categoryNearestList = remember(allGlobalStores, id, userLocation) {
+        val filtered = allGlobalStores.filter { it.CategoryId == id }
+        // Sortăm doar dacă avem distanțe valide
+        if (userLocation != null) {
+            filtered.sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
+        } else {
+            filtered
+        }
+    }
+
+    // Convertim în snapshot pentru UI
+    val popularSnapshot = remember(categoryPopularList) { listToSnapshot(categoryPopularList) }
+    val nearestSnapshot = remember(categoryNearestList) { listToSnapshot(categoryNearestList) }
+
+    // --- LOGICA DE CĂUTARE (Căutăm în TOT, nu doar în categorie) ---
     val searchResults = remember(searchText, allGlobalStores) {
         if (searchText.isEmpty()) {
             emptyList()
@@ -95,9 +81,8 @@ fun ResultList(
                     store.Title.contains(searchText, ignoreCase = true) ||
                             store.Address.contains(searchText, ignoreCase = true)
                 }
-                .sortedBy { store ->
-                    // Sortare: distanța mică prima.
-                    if (store.distanceToUser < 0) Float.MAX_VALUE else store.distanceToUser
+                .sortedBy {
+                    if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
                 }
         }
     }
@@ -160,6 +145,7 @@ fun ResultList(
                     }
                 }
             }
+
         } else {
             // --- LISTELE STANDARD ---
 
@@ -174,24 +160,23 @@ fun ResultList(
                 )
             }
 
-            // Filtrare locală pe baza sub-categoriei selectate
+            // Filtrare locală pe baza sub-categoriei selectate (ex: Burger, Pizza)
             val filteredPopular = if (selectedCategoryName.isEmpty()) popularSnapshot else {
-                val filtered = popularList.filter { it.Activity.equals(selectedCategoryName, ignoreCase = true) }
+                val filtered = categoryPopularList.filter { it.Activity.equals(selectedCategoryName, ignoreCase = true) }
                 listToSnapshot(filtered)
             }
 
             val filteredNearest = if (selectedCategoryName.isEmpty()) nearestSnapshot else {
-                val filtered = nearestList.filter { it.Activity.equals(selectedCategoryName, ignoreCase = true) }
-                // Re-sortăm și lista filtrată dacă e cazul
-                val sortedFiltered = if(userLocation != null) filtered.sortedBy { it.distanceToUser } else filtered
-                listToSnapshot(sortedFiltered)
+                val filtered = categoryNearestList.filter { it.Activity.equals(selectedCategoryName, ignoreCase = true) }
+                listToSnapshot(filtered)
             }
 
+            // Afișăm secțiunile doar dacă avem date
             item {
-                if (!showPopularLoading && filteredPopular.isNotEmpty()) {
+                if (filteredPopular.isNotEmpty()) {
                     PopularSection(
                         list = filteredPopular,
-                        showPopularLoading = showPopularLoading,
+                        showPopularLoading = false, // Avem deja datele
                         onStoreClick = onStoreClick,
                         onSeeAllClick = { onSeeAllClick("popular") },
                         isStoreFavorite = isStoreFavorite,
@@ -201,10 +186,10 @@ fun ResultList(
             }
 
             item {
-                if (!showNearestLoading && filteredNearest.isNotEmpty()) {
+                if (filteredNearest.isNotEmpty()) {
                     NearestList(
                         list = filteredNearest,
-                        showNearestLoading = showNearestLoading,
+                        showNearestLoading = false, // Avem deja datele
                         onStoreClick = onStoreClick,
                         onSeeAllClick = { onSeeAllClick("nearest") },
                         isStoreFavorite = isStoreFavorite,
