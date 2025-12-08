@@ -15,15 +15,14 @@ data class StoreModel(
     var Hours: String = "",
     var ImagePath: String = "",
 
-    // IMPORTANT: Cheie unică din Firebase pentru a diferenția magazinele
     var firebaseKey: String = ""
 ) : Serializable {
-    // Funcție helper pentru a obține un ID unic complet
+
     fun getUniqueId(): String {
         return if (firebaseKey.isNotEmpty()) {
             firebaseKey
         } else {
-            // Fallback: combină CategoryId cu Id pentru unicitate
+
             "${CategoryId}_${Id}"
         }
     }
