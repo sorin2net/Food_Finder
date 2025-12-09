@@ -25,7 +25,6 @@ import com.example.sharoma_finder.screens.results.AllStoresScreen
 import com.example.sharoma_finder.screens.results.ResultList
 import com.example.sharoma_finder.viewModel.DashboardViewModel
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
-import com.google.android.gms.location.LocationServices
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,20 +32,21 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         // Cerem permisiunile la start
+        // Notă: Dacă permisiunea e acordată AICI, la prima rulare, ViewModel-ul
+        // s-ar putea să aibă nevoie de un refresh manual sau de un restart de app
+        // pentru a prinde locația în această sesiune (depinde de timing).
+        // Pentru simplitate, păstrăm fluxul actual.
         val locationPermissionRequest = registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { permissions ->
             when {
                 permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
-                    // Avem locație precisă
                     Log.d("MainActivity", "Fine location permission granted")
                 }
                 permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
-                    // Avem locație aproximativă
                     Log.d("MainActivity", "Coarse location permission granted")
                 }
                 else -> {
-                    // Nu avem permisiune
                     Log.w("MainActivity", "Location permission denied")
                 }
             }
@@ -83,11 +83,9 @@ fun MainApp() {
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 
-    // --- IMPROVED GPS LOGIC ---
+    // --- REFACTORIZED GPS LOGIC ---
+    // Acum doar verificăm permisiunea și delegăm munca grea ViewModel-ului.
     LaunchedEffect(Unit) {
-        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-
-        // Verificăm permisiunile
         val hasPermission = ActivityCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION
@@ -97,28 +95,10 @@ fun MainApp() {
         ) == PackageManager.PERMISSION_GRANTED
 
         if (hasPermission) {
-            try {
-                fusedLocationClient.lastLocation
-                    .addOnSuccessListener { location ->
-                        if (location != null) {
-                            dashboardViewModel.updateUserLocation(location)
-                            Log.d("MainActivity", "GPS location obtained successfully: ${location.latitude}, ${location.longitude}")
-                        } else {
-                            // GPS e pornit dar nu avem încă locație (poate fi null pe emulator uneori)
-                            Log.w("MainActivity", "GPS enabled but no location available yet")
-                            // Aici s-ar putea adăuga logică pentru a cere actualizări active de locație, dar e mai complex
-                        }
-                    }
-                    .addOnFailureListener { exception ->
-                        Log.e("MainActivity", "Failed to get GPS location", exception)
-                        // App-ul va funcționa fără sortare după distanță
-                    }
-            } catch (e: SecurityException) {
-                Log.e("MainActivity", "Security exception when accessing GPS", e)
-            }
+            // Apelăm funcția din ViewModel care folosește ApplicationContext
+            dashboardViewModel.fetchUserLocation()
         } else {
-            Log.w("MainActivity", "GPS permissions not granted - distance sorting disabled")
-            // App-ul va funcționa, dar fără sortare după distanță
+            Log.w("MainActivity", "GPS permissions not granted - skipping fetch")
         }
     }
     // -------------------------
@@ -166,7 +146,6 @@ fun MainApp() {
             )
         }
         is Screen.ViewAll -> {
-            // Verificăm dacă userul a dat click pe "See All" la Nearest
             val listToSend = if (screen.mode == "nearest" || screen.mode == "nearest_all") {
                 dashboardViewModel.nearestStoresAllSorted
             } else {
@@ -181,7 +160,6 @@ fun MainApp() {
                 isStoreFavorite = { store -> dashboardViewModel.isFavorite(store) },
                 onFavoriteToggle = { store -> dashboardViewModel.toggleFavorite(store) },
                 preLoadedList = listToSend,
-                // ✅ ADĂUGAT: Trimitem locația pentru calcul distanță
                 userLocation = dashboardViewModel.currentUserLocation
             )
         }

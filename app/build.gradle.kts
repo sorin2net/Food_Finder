@@ -1,3 +1,5 @@
+import java.util.Properties // Import necesar pentru citirea fișierului
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -21,6 +23,19 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // --- COD NOU PENTRU SECURITATE API KEY ---
+        // 1. Citim fișierul local.properties
+        val keystoreFile = project.rootProject.file("local.properties")
+        val properties = Properties()
+        if (keystoreFile.exists()) {
+            properties.load(keystoreFile.inputStream())
+        }
+
+        // 2. Extragem cheia și o trimitem în Manifest
+        // Dacă cheia nu există în local.properties, punem un text gol ("") ca să nu dea eroare la build
+        manifestPlaceholders["MAPS_API_KEY"] = properties.getProperty("MAPS_API_KEY", "")
+        // -----------------------------------------
     }
 
     buildTypes {
@@ -89,6 +104,8 @@ dependencies {
     implementation("androidx.compose.runtime:runtime-livedata:1.5.4")
     implementation("androidx.compose.material:material-icons-extended:1.5.4")
     implementation("com.google.android.gms:play-services-location:21.0.1")
+
+    // Room Database
     val room_version = "2.6.1"
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")

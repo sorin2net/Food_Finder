@@ -21,6 +21,7 @@ import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.repository.Resource
 import com.example.sharoma_finder.viewModel.ResultsViewModel
+import com.example.sharoma_finder.screens.common.ErrorScreen
 
 @Composable
 fun ResultList(
@@ -31,7 +32,6 @@ fun ResultList(
     onSeeAllClick: (String) -> Unit,
     isStoreFavorite: (StoreModel) -> Boolean,
     onFavoriteToggle: (StoreModel) -> Unit,
-    // Aceasta conține TOATE magazinele cu distanța deja calculată în Dashboard
     allGlobalStores: List<StoreModel> = emptyList(),
     userLocation: Location? = null
 ) {
@@ -40,51 +40,100 @@ fun ResultList(
     var searchText by rememberSaveable { mutableStateOf("") }
     var selectedCategoryName by remember { mutableStateOf("") }
 
-    // Încărcăm doar subcategoriile (Burger, Pizza etc)
-    val subCategoryState by remember(id) { viewModel.loadSubCategory(id) }.observeAsState(Resource.Loading())
-    val subCategoryList = subCategoryState.data ?: emptyList()
+    // ✅ ADDED: Error state management
+    var hasError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+
+    // Subcategories
+    val subCategoryState by remember(id) {
+        viewModel.loadSubCategory(id)
+    }.observeAsState(Resource.Loading())
+
+    // ✅ IMPROVED: Handle subcategory errors
+    val subCategoryList = when (subCategoryState) {
+        is Resource.Success -> subCategoryState.data ?: emptyList()
+        is Resource.Error -> {
+            LaunchedEffect(Unit) {
+                hasError = true
+                errorMessage = subCategoryState.message ?: "Failed to load categories"
+            }
+            emptyList()
+        }
+        else -> emptyList()
+    }
+
     val showSubCategoryLoading = subCategoryState is Resource.Loading
     val subCategorySnapshot = remember(subCategoryList) { listToSnapshot(subCategoryList) }
 
-    // --- FILTRARE DIN LISTA GLOBALĂ ---
-    // În loc să descărcăm din nou, filtrăm lista globală pentru categoria curentă (id)
-
-    // 1. Lista Popular pentru categoria curentă
+    // ✅ IMPROVED: Validate data before filtering
     val categoryPopularList = remember(allGlobalStores, id) {
-        allGlobalStores.filter {
-            it.CategoryId == id && it.IsPopular
+        try {
+            allGlobalStores.filter {
+                it.CategoryId == id && it.IsPopular && it.isValid()
+            }
+        } catch (e: Exception) {
+            hasError = true
+            errorMessage = "Error filtering popular stores: ${e.message}"
+            emptyList()
         }
     }
 
-    // 2. Lista Nearest pentru categoria curentă (sortată după distanță)
     val categoryNearestList = remember(allGlobalStores, id, userLocation) {
-        val filtered = allGlobalStores.filter { it.CategoryId == id }
-        // Sortăm doar dacă avem distanțe valide
-        if (userLocation != null) {
-            filtered.sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
-        } else {
-            filtered
+        try {
+            val filtered = allGlobalStores.filter {
+                it.CategoryId == id && it.isValid()
+            }
+            if (userLocation != null) {
+                filtered.sortedBy {
+                    if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
+                }
+            } else {
+                filtered
+            }
+        } catch (e: Exception) {
+            hasError = true
+            errorMessage = "Error filtering nearest stores: ${e.message}"
+            emptyList()
         }
     }
 
-    // Convertim în snapshot pentru UI
     val popularSnapshot = remember(categoryPopularList) { listToSnapshot(categoryPopularList) }
     val nearestSnapshot = remember(categoryNearestList) { listToSnapshot(categoryNearestList) }
 
-    // --- LOGICA DE CĂUTARE (Căutăm în TOT, nu doar în categorie) ---
+    // Search logic
     val searchResults = remember(searchText, allGlobalStores) {
         if (searchText.isEmpty()) {
             emptyList()
         } else {
-            allGlobalStores
-                .filter { store ->
-                    store.Title.contains(searchText, ignoreCase = true) ||
-                            store.Address.contains(searchText, ignoreCase = true)
-                }
-                .sortedBy {
-                    if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
-                }
+            try {
+                allGlobalStores
+                    .filter { store ->
+                        store.isValid() && (
+                                store.Title.contains(searchText, ignoreCase = true) ||
+                                        store.Address.contains(searchText, ignoreCase = true)
+                                )
+                    }
+                    .sortedBy {
+                        if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
+                    }
+            } catch (e: Exception) {
+                hasError = true
+                errorMessage = "Search error: ${e.message}"
+                emptyList()
+            }
         }
+    }
+
+    // ✅ ADDED: Show error screen if something went wrong
+    if (hasError) {
+        ErrorScreen(
+            message = errorMessage,
+            onRetry = {
+                hasError = false
+                errorMessage = ""
+            }
+        )
+        return
     }
 
     LazyColumn(
@@ -102,7 +151,7 @@ fun ResultList(
         }
 
         if (searchText.isNotEmpty()) {
-            // --- REZULTATE CĂUTARE ---
+            // Search Results
             item {
                 Text(
                     text = "Search Results (${searchResults.size})",
@@ -115,8 +164,16 @@ fun ResultList(
 
             if (searchResults.isEmpty()) {
                 item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text("No stores found matching \"$searchText\"", color = Color.Gray)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "No stores found matching \"$searchText\"",
+                            color = Color.Gray
+                        )
                     }
                 }
             } else {
@@ -147,8 +204,7 @@ fun ResultList(
             }
 
         } else {
-            // --- LISTELE STANDARD ---
-
+            // Standard Lists
             item {
                 SubCategory(
                     subCategory = subCategorySnapshot,
@@ -160,23 +216,25 @@ fun ResultList(
                 )
             }
 
-            // Filtrare locală pe baza sub-categoriei selectate (ex: Burger, Pizza)
             val filteredPopular = if (selectedCategoryName.isEmpty()) popularSnapshot else {
-                val filtered = categoryPopularList.filter { it.Activity.equals(selectedCategoryName, ignoreCase = true) }
+                val filtered = categoryPopularList.filter {
+                    it.Activity.equals(selectedCategoryName, ignoreCase = true)
+                }
                 listToSnapshot(filtered)
             }
 
             val filteredNearest = if (selectedCategoryName.isEmpty()) nearestSnapshot else {
-                val filtered = categoryNearestList.filter { it.Activity.equals(selectedCategoryName, ignoreCase = true) }
+                val filtered = categoryNearestList.filter {
+                    it.Activity.equals(selectedCategoryName, ignoreCase = true)
+                }
                 listToSnapshot(filtered)
             }
 
-            // Afișăm secțiunile doar dacă avem date
             item {
                 if (filteredPopular.isNotEmpty()) {
                     PopularSection(
                         list = filteredPopular,
-                        showPopularLoading = false, // Avem deja datele
+                        showPopularLoading = false,
                         onStoreClick = onStoreClick,
                         onSeeAllClick = { onSeeAllClick("popular") },
                         isStoreFavorite = isStoreFavorite,
@@ -189,7 +247,7 @@ fun ResultList(
                 if (filteredNearest.isNotEmpty()) {
                     NearestList(
                         list = filteredNearest,
-                        showNearestLoading = false, // Avem deja datele
+                        showNearestLoading = false,
                         onStoreClick = onStoreClick,
                         onSeeAllClick = { onSeeAllClick("nearest") },
                         isStoreFavorite = isStoreFavorite,

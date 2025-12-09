@@ -1,10 +1,13 @@
 package com.example.sharoma_finder.viewModel
 
+import android.Manifest
 import android.app.Application
+import android.content.pm.PackageManager
 import android.location.Location
 import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.core.app.ActivityCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
@@ -16,6 +19,7 @@ import com.example.sharoma_finder.repository.FavoritesManager
 import com.example.sharoma_finder.repository.Resource
 import com.example.sharoma_finder.repository.ResultsRepository
 import com.example.sharoma_finder.repository.UserManager
+import com.google.android.gms.location.LocationServices
 import com.google.firebase.analytics.FirebaseAnalytics
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
@@ -26,7 +30,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val userManager = UserManager(application.applicationContext)
     private val analytics = FirebaseAnalytics.getInstance(application.applicationContext)
 
-    // ✅ ADĂUGAT: Observer pentru a preveni memory leaks
+    // Observer pentru a preveni memory leaks
     private var storesObserver: Observer<Resource<MutableList<StoreModel>>>? = null
     private var storesLiveData: LiveData<Resource<MutableList<StoreModel>>>? = null
 
@@ -54,7 +58,40 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         loadInitialData()
     }
 
-    // ✅ MODIFICAT: Previne memory leak
+    // --- LOGICA DE LOCAȚIE MUTATĂ AICI ---
+    fun fetchUserLocation() {
+        val context = getApplication<Application>().applicationContext
+
+        // Verificăm permisiunile din nou pentru siguranță (deși UI-ul a verificat deja)
+        val hasFine = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+        if (hasFine || hasCoarse) {
+            try {
+                // Folosim ApplicationContext, deci nu avem memory leak
+                val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { location ->
+                        if (location != null) {
+                            // Updatăm locația și recalculăm distanțele
+                            updateUserLocation(location)
+                            Log.d("DashboardVM", "GPS location found in VM: ${location.latitude}, ${location.longitude}")
+                        } else {
+                            Log.w("DashboardVM", "GPS enabled but location is null")
+                        }
+                    }
+                    .addOnFailureListener { exception ->
+                        Log.e("DashboardVM", "Failed to get GPS location in VM", exception)
+                    }
+            } catch (e: SecurityException) {
+                Log.e("DashboardVM", "GPS Security Error", e)
+            }
+        } else {
+            Log.w("DashboardVM", "Cannot fetch location: Permissions missing")
+        }
+    }
+
     private fun loadInitialData() {
         storesLiveData = resultsRepository.loadAllStores()
 
@@ -76,7 +113,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 }
                 is Resource.Error -> {
                     Log.e("DashboardVM", "Error loading stores: ${resource.message}")
-                    isDataLoaded.value = true // Setăm true ca să nu rămână loading forever
+                    isDataLoaded.value = true
                 }
                 is Resource.Loading -> {
                     Log.d("DashboardVM", "Loading stores...")
@@ -87,7 +124,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         storesLiveData?.observeForever(storesObserver!!)
     }
 
-    // ✅ ADĂUGAT: Cleanup pentru a preveni memory leaks
     override fun onCleared() {
         super.onCleared()
         Log.d("DashboardViewModel", "=== CLEANUP START ===")

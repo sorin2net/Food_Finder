@@ -20,6 +20,7 @@
 -keep class com.google.firebase.crashlytics.** { *; }
 
 # ===== DATA CLASSES (MODELE) =====
+# CRITIC: Asta protejeaza StoreModel ca sa mearga Firebase
 -keep class com.example.sharoma_finder.domain.** { *; }
 -keepclassmembers class com.example.sharoma_finder.domain.** {
     <init>(...);
@@ -36,14 +37,15 @@
 -dontwarn okio.**
 -keep class okhttp3.** { *; }
 -keep interface okhttp3.** { *; }
+# Platform specific fixes for OkHttp
+-dontwarn org.conscrypt.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.openjsse.**
 
-# ===== GOOGLE MAPS =====
+# ===== GOOGLE MAPS & LOCATION =====
 -keep class com.google.android.gms.maps.** { *; }
 -keep interface com.google.android.gms.maps.** { *; }
--dontwarn com.google.android.gms.**
-
-# Google Play Services
--keep class com.google.android.gms.** { *; }
+-keep class com.google.android.gms.location.** { *; }
 -dontwarn com.google.android.gms.**
 
 # ===== KOTLIN =====
@@ -78,29 +80,14 @@
 -keep class androidx.** { *; }
 -keep interface androidx.** { *; }
 -dontwarn androidx.**
+-keep class androidx.lifecycle.ViewModel { *; }
+-keepclassmembers class * extends androidx.lifecycle.ViewModel {
+    <init>(...);
+}
 
-# ===== GSON (COMENTAT - NU ESTE INSTALAT) =====
-# Decomenteaza liniile de mai jos doar daca instalezi com.google.code.gson:gson
-# -keepattributes Signature
-# -keepattributes *Annotation*
-# -dontwarn sun.misc.**
-# -keep class com.google.gson.** { *; }
-# -keep class * extends com.google.gson.TypeAdapter
-# -keep class * implements com.google.gson.TypeAdapterFactory
-# -keep class * implements com.google.gson.JsonSerializer
-# -keep class * implements com.google.gson.JsonDeserializer
-
-# ===== RETROFIT (COMENTAT - NU ESTE INSTALAT) =====
-# Decomenteaza daca instalezi Retrofit pe viitor
-# -keepattributes Signature, InnerClasses, EnclosingMethod
-# -keepattributes RuntimeVisibleAnnotations, RuntimeVisibleParameterAnnotations
-# -keepclassmembers,allowshrinking,allowobfuscation interface * {
-#    @retrofit2.http.* <methods>;
-# }
-# -dontwarn org.codehaus.mojo.animal_sniffer.IgnoreRequirement
-# -dontwarn javax.annotation.**
-# -dontwarn kotlin.Unit
-# -dontwarn retrofit2.-KotlinExtensions
+# ===== ACCOMPANIST (System UI Controller) =====
+-keep class com.google.accompanist.** { *; }
+-dontwarn com.google.accompanist.**
 
 # ===== GENERAL RULES =====
 # Keep line numbers for crash reports (important for Crashlytics!)
@@ -113,7 +100,7 @@
 # Keep annotations
 -keepattributes *Annotation*
 
-# Prevent crashes from missing classes
+# Prevent crashes from missing classes (Java 8+)
 -dontwarn java.lang.invoke.StringConcatFactory
 
 # Keep Parcelable implementations
@@ -131,8 +118,14 @@
     java.lang.Object readResolve();
 }
 
-# ===== DEBUGGING =====
-# Remove logging in release builds
+# Keep Enums (previne erori la valueOf)
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+# ===== DEBUGGING CLEANUP =====
+# Sterge Log.d, Log.e, etc din versiunea Release
 -assumenosideeffects class android.util.Log {
     public static boolean isLoggable(java.lang.String, int);
     public static int v(...);
@@ -141,3 +134,6 @@
     public static int d(...);
     public static int e(...);
 }
+
+# ===== R8 OPTIMIZATIONS =====
+# Permite R8
