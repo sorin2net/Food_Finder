@@ -106,9 +106,9 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.0.1")
 
     // Room Database
-    val room_version = "2.6.1"
+    val room_version = "2.7.0-alpha13"
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
     add("kapt", "androidx.room:room-compiler:$room_version")
-
+    implementation("com.google.code.gson:gson:2.10.1")
 }
