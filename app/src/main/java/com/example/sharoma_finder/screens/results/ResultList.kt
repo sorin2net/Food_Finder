@@ -16,12 +16,14 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.sharoma_finder.R
+import com.example.sharoma_finder.data.AppDatabase
+import com.example.sharoma_finder.domain.CategoryModel
 import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.repository.Resource
-import com.example.sharoma_finder.viewModel.ResultsViewModel
+import com.example.sharoma_finder.repository.ResultsRepository
 import com.example.sharoma_finder.screens.common.ErrorScreen
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun ResultList(
@@ -35,19 +37,19 @@ fun ResultList(
     allGlobalStores: List<StoreModel> = emptyList(),
     userLocation: Location? = null
 ) {
-    val viewModel: ResultsViewModel = viewModel()
+    // ✅ FIX: Creăm repository-ul cu StoreDao
+    val context = LocalContext.current
+    val database = AppDatabase.getDatabase(context)
+    val repository = ResultsRepository(database.storeDao())
 
     var searchText by rememberSaveable { mutableStateOf("") }
-
-    // ✅ MODIFICAT: Acum stocăm TAG-ul selectat în loc de nume subcategorie
     var selectedTag by remember { mutableStateOf("") }
-
     var hasError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    // Subcategories (acestea rămân la fel - Burger, Pizza, Sushi, etc.)
+    // ✅ Subcategoriile (Burger, Pizza, Sushi, etc.)
     val subCategoryState by remember(id) {
-        viewModel.loadSubCategory(id)
+        repository.loadSubCategory(id)
     }.observeAsState(Resource.Loading())
 
     val subCategoryList = when (subCategoryState) {
@@ -65,17 +67,15 @@ fun ResultList(
     val showSubCategoryLoading = subCategoryState is Resource.Loading
     val subCategorySnapshot = remember(subCategoryList) { listToSnapshot(subCategoryList) }
 
-    // ✅ MODIFICAT: Filtrăm după CategoryId și după Tag-uri (dacă e selectat un tag)
+    // ✅ Filtrăm magazinele după CategoryId și Tag-uri (OFFLINE)
     val categoryPopularList = remember(allGlobalStores, id, selectedTag) {
         try {
             allGlobalStores.filter { store ->
                 val matchesCategory = store.CategoryId == id && store.IsPopular && store.isValid()
 
-                // Dacă nu e selectat niciun tag, arată toate magazinele din categorie
                 if (selectedTag.isEmpty()) {
                     matchesCategory
                 } else {
-                    // Dacă e selectat un tag, arată doar magazinele care au acel tag
                     matchesCategory && store.hasTag(selectedTag)
                 }
             }
@@ -86,7 +86,7 @@ fun ResultList(
         }
     }
 
-    // ✅ MODIFICAT: Același lucru pentru Nearest
+    // ✅ Filtrăm Nearest (OFFLINE)
     val categoryNearestList = remember(allGlobalStores, id, userLocation, selectedTag) {
         try {
             val filtered = allGlobalStores.filter { store ->
@@ -116,7 +116,7 @@ fun ResultList(
     val popularSnapshot = remember(categoryPopularList) { listToSnapshot(categoryPopularList) }
     val nearestSnapshot = remember(categoryNearestList) { listToSnapshot(categoryNearestList) }
 
-    // ✅ MODIFICAT: Search caută și în Tag-uri
+    // ✅ Search funcționează OFFLINE (caută în allGlobalStores)
     val searchResults = remember(searchText, allGlobalStores) {
         if (searchText.isEmpty()) {
             emptyList()
@@ -127,7 +127,6 @@ fun ResultList(
                         store.isValid() && (
                                 store.Title.contains(searchText, ignoreCase = true) ||
                                         store.Address.contains(searchText, ignoreCase = true) ||
-                                        // ✅ NOU: Caută și în tag-uri
                                         store.Tags.any { tag ->
                                             tag.contains(searchText, ignoreCase = true)
                                         }
@@ -170,7 +169,7 @@ fun ResultList(
         }
 
         if (searchText.isNotEmpty()) {
-            // Search Results
+            // ===== SEARCH RESULTS =====
             item {
                 Text(
                     text = "Search Results (${searchResults.size})",
@@ -223,21 +222,19 @@ fun ResultList(
             }
 
         } else {
-            // ✅ MODIFICAT: Când apeși pe subcategorie (Burger, Pizza, etc.),
-            // setăm selectedTag în loc de selectedCategoryName
+            // ===== SUBCATEGORIES (Burger, Pizza, Sushi) =====
             item {
                 SubCategory(
                     subCategory = subCategorySnapshot,
                     showSubCategoryLoading = showSubCategoryLoading,
-                    selectedCategoryName = selectedTag, // Folosim același parametru
+                    selectedCategoryName = selectedTag,
                     onCategoryClick = { clickedTag ->
-                        // Dacă dai click pe același tag, îl deselectezi (arată tot)
                         selectedTag = if (selectedTag == clickedTag) "" else clickedTag
                     }
                 )
             }
 
-            // ✅ IMPORTANT: Nu mai facem filtrare aici, o facem mai sus în remember()
+            // ===== POPULAR SECTION =====
             item {
                 if (popularSnapshot.isNotEmpty()) {
                     PopularSection(
@@ -249,7 +246,6 @@ fun ResultList(
                         onFavoriteToggle = onFavoriteToggle
                     )
                 } else if (selectedTag.isNotEmpty()) {
-                    // Mesaj când nu există restaurante cu tag-ul selectat
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -265,6 +261,7 @@ fun ResultList(
                 }
             }
 
+            // ===== NEAREST SECTION =====
             item {
                 if (nearestSnapshot.isNotEmpty()) {
                     NearestList(
@@ -294,6 +291,7 @@ fun ResultList(
     }
 }
 
+// ✅ Helper function
 fun <T> listToSnapshot(list: List<T>): SnapshotStateList<T> {
     val snapshot = androidx.compose.runtime.mutableStateListOf<T>()
     snapshot.addAll(list)

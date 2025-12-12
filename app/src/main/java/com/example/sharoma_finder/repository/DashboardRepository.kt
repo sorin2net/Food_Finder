@@ -2,64 +2,113 @@ package com.example.sharoma_finder.repository
 
 import android.util.Log
 import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
-import com.example.sharoma_finder.domain.CategoryModel
+import com.example.sharoma_finder.data.BannerDao
+import com.example.sharoma_finder.data.CategoryDao
 import com.example.sharoma_finder.domain.BannerModel
+import com.example.sharoma_finder.domain.CategoryModel
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 
-class DashboardRepository {
+class DashboardRepository(
+    private val categoryDao: CategoryDao,
+    private val bannerDao: BannerDao
+) {
     private val firebaseDatabase = FirebaseDatabase.getInstance()
 
-    fun loadCategory(): LiveData<MutableList<CategoryModel>> {
-        val listData = MutableLiveData<MutableList<CategoryModel>>()
-        val ref = firebaseDatabase.getReference("Category")
+    // ✅ Sursa de adevăr e Room
+    val allCategories: LiveData<List<CategoryModel>> = categoryDao.getAllCategories()
+    val allBanners: LiveData<List<BannerModel>> = bannerDao.getAllBanners()
 
-        ref.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val list = mutableListOf<CategoryModel>()
-                for (childSnapshot in snapshot.children) {
-                    val item = childSnapshot.getValue(CategoryModel::class.java)
-                    item?.let {
-                        list.add(it)
-                    }
+    /**
+     * ✅ Sincronizează categoriile cu Firebase
+     */
+    suspend fun refreshCategories() {
+        withContext(Dispatchers.IO) {
+            try {
+                Log.d("DashboardRepo", "🌍 Syncing categories...")
+
+                val snapshot = withTimeoutOrNull(10000L) {
+                    firebaseDatabase.getReference("Category").get().await()
                 }
-                listData.value = list
-            }
 
-            override fun onCancelled(error: DatabaseError) {
-                // ✅ FIXED: Gestionăm erorile corect
-                Log.e("DashboardRepository", "Error loading categories: ${error.message}")
-                listData.value = mutableListOf() // Return empty list instead of crash
+                if (snapshot == null) {
+                    Log.w("DashboardRepo", "⏰ Category sync timeout")
+                    return@withContext
+                }
+
+                val categories = mutableListOf<CategoryModel>()
+                for (child in snapshot.children) {
+                    child.getValue(CategoryModel::class.java)?.let { categories.add(it) }
+                }
+
+                if (categories.isNotEmpty()) {
+                    categoryDao.insertAll(categories)
+                    Log.d("DashboardRepo", "✅ Synced ${categories.size} categories")
+                }
+
+            } catch (e: Exception) {
+                Log.e("DashboardRepo", "❌ Category sync failed: ${e.message}")
             }
-        })
-        return listData
+        }
     }
 
-    fun loadBanner(): LiveData<MutableList<BannerModel>> {
-        val listData = MutableLiveData<MutableList<BannerModel>>()
-        val ref = firebaseDatabase.getReference("Banners")
+    /**
+     * ✅ Sincronizează banner-urile cu Firebase
+     */
+    suspend fun refreshBanners() {
+        withContext(Dispatchers.IO) {
+            try {
+                Log.d("DashboardRepo", "🌍 Syncing banners...")
 
-        ref.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val list = mutableListOf<BannerModel>()
-                for (childSnapshot in snapshot.children) {
-                    val item = childSnapshot.getValue(BannerModel::class.java)
-                    item?.let {
-                        list.add(it)
-                    }
+                val snapshot = withTimeoutOrNull(10000L) {
+                    firebaseDatabase.getReference("Banners").get().await()
                 }
-                listData.value = list
-            }
 
-            override fun onCancelled(error: DatabaseError) {
-                // ✅ FIXED: Gestionăm erorile corect
-                Log.e("DashboardRepository", "Error loading banners: ${error.message}")
-                listData.value = mutableListOf() // Return empty list instead of crash
+                if (snapshot == null) {
+                    Log.w("DashboardRepo", "⏰ Banner sync timeout")
+                    return@withContext
+                }
+
+                val banners = mutableListOf<BannerModel>()
+                for (child in snapshot.children) {
+                    child.getValue(BannerModel::class.java)?.let { banners.add(it) }
+                }
+
+                if (banners.isNotEmpty()) {
+                    bannerDao.insertAll(banners)
+                    Log.d("DashboardRepo", "✅ Synced ${banners.size} banners")
+                }
+
+            } catch (e: Exception) {
+                Log.e("DashboardRepo", "❌ Banner sync failed: ${e.message}")
             }
-        })
-        return listData
+        }
+    }
+
+    // ✅ OPȚIONAL: Verifică dacă avem cache
+    suspend fun hasCachedCategories(): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                categoryDao.getCategoryCount() > 0
+            } catch (e: Exception) {
+                false
+            }
+        }
+    }
+
+    suspend fun hasCachedBanners(): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                bannerDao.getBannerCount() > 0
+            } catch (e: Exception) {
+                false
+            }
+        }
     }
 }

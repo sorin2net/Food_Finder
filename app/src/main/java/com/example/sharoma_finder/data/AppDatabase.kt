@@ -5,12 +5,24 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.example.sharoma_finder.domain.BannerModel
+import com.example.sharoma_finder.domain.CategoryModel
 import com.example.sharoma_finder.domain.StoreModel
 
-@Database(entities = [StoreModel::class], version = 1, exportSchema = false)
-@TypeConverters(Converters::class) // ✅ Folosim convertorul creat la Pasul 1
+@Database(
+    entities = [
+        StoreModel::class,
+        CategoryModel::class,  // ✅ Adăugat
+        BannerModel::class     // ✅ Adăugat
+    ],
+    version = 2,  // ✅ IMPORTANT: Crește versiunea de la 1 la 2
+    exportSchema = false
+)
+@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun storeDao(): StoreDao
+    abstract fun categoryDao(): CategoryDao  // ✅ Adăugat
+    abstract fun bannerDao(): BannerDao      // ✅ Adăugat
 
     companion object {
         @Volatile
@@ -23,7 +35,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "sharoma_database"
                 )
-                    .fallbackToDestructiveMigration() // Resetează DB dacă schimbăm structura (ok pt cache)
+                    .fallbackToDestructiveMigration() // ✅ Resetează DB la upgrade
                     .build()
                 INSTANCE = instance
                 instance

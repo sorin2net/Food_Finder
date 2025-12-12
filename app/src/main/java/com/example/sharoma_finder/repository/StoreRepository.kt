@@ -8,45 +8,100 @@ import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 
 class StoreRepository(private val storeDao: StoreDao) {
     private val firebaseDatabase = FirebaseDatabase.getInstance()
 
-    // ✅ Sursa de adevăr este ACUM Baza de Date Locală (Room)
-    // UI-ul va observa această listă. Când Room se updatează, UI-ul se updatează.
+    // Sursa de adevăr este baza de date locală
     val allStores: LiveData<List<StoreModel>> = storeDao.getAllStores()
 
-    // ✅ Funcție apelată din ViewModel pentru a sincroniza datele
+    /**
+     * Sincronizează datele cu Firebase
+     * ✅ Funcționează OFFLINE - nu blochează aplicația dacă nu e internet
+     * ✅ Are TIMEOUT - nu așteaptă la infinit
+     * ✅ Gestionează erorile ELEGANT - nu face crash aplicația
+     */
     suspend fun refreshStores() {
         withContext(Dispatchers.IO) {
             try {
-                Log.d("StoreRepository", "🌍 Fetching stores from Firebase...")
+                Log.d("StoreRepository", "🌍 Starting Firebase sync...")
 
-                // 1. Luăm datele din Firebase (folosind await() pentru coroutines)
-                val snapshot = firebaseDatabase.getReference("Stores").get().await()
+                // ✅ ADĂUGAT: Timeout de 10 secunde pentru Firebase
+                // Dacă nu răspunde în 10 secunde, renunțăm și folosim cache-ul local
+                val snapshot = withTimeoutOrNull(10000L) {
+                    firebaseDatabase.getReference("Stores").get().await()
+                }
+
+                if (snapshot == null) {
+                    Log.w("StoreRepository", "⏰ Firebase timeout - using local cache")
+                    return@withContext
+                }
+
                 val freshStores = mutableListOf<StoreModel>()
+                var invalidCount = 0
 
                 for (child in snapshot.children) {
                     val model = child.getValue(StoreModel::class.java)
                     if (model != null && model.isValid()) {
-                        // Asigurăm cheia unică
                         model.firebaseKey = child.key ?: "${model.CategoryId}_${model.Id}"
                         freshStores.add(model)
+                    } else {
+                        invalidCount++
                     }
                 }
 
-                // 2. Salvăm în Room (Room va notifica automat LiveData-ul de mai sus)
                 if (freshStores.isNotEmpty()) {
-                    Log.d("StoreRepository", "💾 Saving ${freshStores.size} stores to Room")
+                    Log.d("StoreRepository", "✅ Synced ${freshStores.size} stores ($invalidCount invalid)")
+
+                    // ✅ Salvăm în Room (actualizează automat LiveData)
                     storeDao.insertAll(freshStores)
+
+                    Log.d("StoreRepository", "💾 Successfully saved to local database")
                 } else {
                     Log.w("StoreRepository", "⚠️ Firebase returned empty list")
                 }
 
+            } catch (e: com.google.firebase.FirebaseException) {
+                Log.e("StoreRepository", "🔥 Firebase error: ${e.message}")
+                // Firebase error (de obicei offline) - nu facem nimic, folosim cache-ul
+            } catch (e: java.net.UnknownHostException) {
+                Log.e("StoreRepository", "🌐 No internet connection")
+                // Offline - normal, folosim cache-ul local
+            } catch (e: java.net.SocketTimeoutException) {
+                Log.e("StoreRepository", "⏰ Connection timeout")
+                // Timeout - folosim cache-ul local
             } catch (e: Exception) {
-                Log.e("StoreRepository", "❌ Error syncing data: ${e.message}")
-                // Nu facem nimic critic aici. Dacă pică netul,
-                // utilizatorul rămâne cu datele vechi din Room (allStores).
+                Log.e("StoreRepository", "❌ Unexpected error: ${e.javaClass.simpleName} - ${e.message}")
+                // Orice altă eroare - nu blocăm aplicația
+            }
+        }
+    }
+
+    /**
+     * ✅ NOU: Funcție pentru a verifica dacă avem date în cache
+     * Folositor pentru debugging și UI
+     */
+    suspend fun hasCachedData(): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                storeDao.getStoreCount() > 0
+            } catch (e: Exception) {
+                false
+            }
+        }
+    }
+
+    /**
+     * ✅ NOU: Șterge toate datele locale (pentru debugging sau logout)
+     */
+    suspend fun clearCache() {
+        withContext(Dispatchers.IO) {
+            try {
+                storeDao.deleteAll()
+                Log.d("StoreRepository", "🗑️ Cache cleared successfully")
+            } catch (e: Exception) {
+                Log.e("StoreRepository", "Error clearing cache: ${e.message}")
             }
         }
     }

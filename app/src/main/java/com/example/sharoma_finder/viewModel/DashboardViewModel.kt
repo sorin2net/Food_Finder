@@ -29,32 +29,29 @@ import kotlinx.coroutines.withContext
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
 
-    // Repository-uri vechi (pentru Bannere și Categorii - rămân pe Firebase direct momentan)
-    private val dashboardRepository = DashboardRepository()
-
-    // Manageri locali
     private val favoritesManager = FavoritesManager(application.applicationContext)
     private val userManager = UserManager(application.applicationContext)
     private val analytics = FirebaseAnalytics.getInstance(application.applicationContext)
 
-    // ✅ OFFLINE SUPPORT: Inițializare Room Database și StoreRepository
     private val database = AppDatabase.getDatabase(application)
     private val storeRepository = StoreRepository(database.storeDao())
 
-    // Observer pentru baza de date locală (îl păstrăm ca variabilă ca să îl putem opri la onCleared)
+    // ✅ Repository actualizat cu DAO-uri
+    private val dashboardRepository = DashboardRepository(
+        database.categoryDao(),
+        database.bannerDao()
+    )
+
     private lateinit var localStoreObserver: Observer<List<StoreModel>>
 
-    // Liste pentru UI (State)
     val favoriteStoreIds = mutableStateListOf<String>()
     val favoriteStores = mutableStateListOf<StoreModel>()
     val nearestStoresTop5 = mutableStateListOf<StoreModel>()
     val popularStores = mutableStateListOf<StoreModel>()
     val nearestStoresAllSorted = mutableStateListOf<StoreModel>()
 
-    // Lista internă cu toate magazinele (sursa brută)
     private val allStoresRaw = mutableListOf<StoreModel>()
 
-    // State UI
     val isDataLoaded = mutableStateOf(false)
     var userName = mutableStateOf("Utilizatorule")
     var userImagePath = mutableStateOf<String?>(null)
@@ -66,64 +63,102 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         loadUserData()
         loadFavorites()
 
-        // ✅ 1. Pornim observarea Bazei de Date Locale (Room)
+        checkLocalCache()
         observeLocalDatabase()
-
-        // ✅ 2. Lansăm sincronizarea cu Firebase în fundal
         refreshDataFromNetwork()
     }
 
-    private fun observeLocalDatabase() {
-        // Definim observer-ul
-        localStoreObserver = Observer { stores ->
-            // ✅ MODIFICARE: Procesăm lista chiar dacă e goală (nu punem if isNotEmpty la început)
-            if (stores != null) {
-                Log.d("DashboardVM", "🏠 Loaded ${stores.size} stores from LOCAL DB (Room)")
+    private fun checkLocalCache() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val cachedStores = database.storeDao().getAllStoresSync()
 
-                // 1. Punem datele din DB în lista internă (chiar dacă e goală, o curățăm pe cea veche)
+                withContext(Dispatchers.Main) {
+                    if (cachedStores.isNotEmpty()) {
+                        Log.d("DashboardVM", "✅ Found ${cachedStores.size} stores in cache")
+
+                        allStoresRaw.clear()
+                        allStoresRaw.addAll(cachedStores)
+
+                        if (currentUserLocation != null) {
+                            recalculateDistances()
+                        } else {
+                            processData()
+                        }
+                    } else {
+                        Log.d("DashboardVM", "⚠️ Cache is empty - showing empty state")
+                    }
+
+                    isDataLoaded.value = true
+                }
+            } catch (e: Exception) {
+                Log.e("DashboardVM", "❌ Error checking cache: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    isDataLoaded.value = true
+                }
+            }
+        }
+    }
+
+    private fun observeLocalDatabase() {
+        localStoreObserver = Observer { stores ->
+            if (stores != null) {
+                Log.d("DashboardVM", "🔄 Room updated: ${stores.size} stores")
+
                 allStoresRaw.clear()
                 allStoresRaw.addAll(stores)
 
-                // 2. Procesăm datele (calculăm distanțe dacă avem GPS, sortăm, filtrăm)
                 if (currentUserLocation != null) {
                     recalculateDistances()
                 } else {
-                    processData() // Doar sortează/filtrează fără distanță
+                    processData()
                 }
 
-                // ✅ Dacă avem date locale, oprim loading-ul imediat.
-                // Dacă lista e goală, așteptăm refreshDataFromNetwork să oprească loading-ul.
-                if (stores.isNotEmpty()) {
+                if (!isDataLoaded.value) {
                     isDataLoaded.value = true
                 }
             }
         }
 
-        // Atașăm observer-ul la LiveData-ul din Repository
         storeRepository.allStores.observeForever(localStoreObserver)
     }
 
     private fun refreshDataFromNetwork() {
         viewModelScope.launch {
-            Log.d("DashboardVM", "🔄 Starting network sync...")
+            Log.d("DashboardVM", "🌐 Attempting network sync...")
 
-            // Apelăm funcția din repository. Aceasta rulează și dacă nu e net (prinde eroarea intern).
-            storeRepository.refreshStores()
+            try {
+                // ✅ Sincronizăm TOATE datele
+                withContext(Dispatchers.IO) {
+                    storeRepository.refreshStores()
+                    dashboardRepository.refreshCategories()  // ✅ NOU
+                    dashboardRepository.refreshBanners()     // ✅ NOU
+                }
+                Log.d("DashboardVM", "✅ Network sync completed successfully")
+            } catch (e: Exception) {
+                Log.e("DashboardVM", "❌ Network sync failed: ${e.message}")
+            }
 
-            // ✅ FIX CRITIC: Indiferent dacă a reușit sau a eșuat (ex: offline),
-            // marcăm datele ca fiind încărcate. Astfel dispare loading-ul infinit.
-            isDataLoaded.value = true
-
-            Log.d("DashboardVM", "✅ Network sync finished (or skipped). Loading stopped.")
+            kotlinx.coroutines.delay(8000)
+            if (!isDataLoaded.value) {
+                Log.w("DashboardVM", "⏰ Timeout reached - forcing data loaded state")
+                isDataLoaded.value = true
+            }
         }
     }
 
-    // --- LOGICA DE LOCAȚIE ---
     fun fetchUserLocation() {
         val context = getApplication<Application>().applicationContext
 
-        val hasFine = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val hasCoarse = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasFine = ActivityCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val hasCoarse = ActivityCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
 
         if (hasFine || hasCoarse) {
             try {
@@ -132,25 +167,24 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     .addOnSuccessListener { location ->
                         if (location != null) {
                             updateUserLocation(location)
-                            Log.d("DashboardVM", "GPS location found: ${location.latitude}, ${location.longitude}")
+                            Log.d("DashboardVM", "📍 GPS location: ${location.latitude}, ${location.longitude}")
                         } else {
-                            Log.w("DashboardVM", "GPS enabled but location is null")
+                            Log.w("DashboardVM", "⚠️ GPS enabled but location is null")
                         }
                     }
                     .addOnFailureListener { exception ->
-                        Log.e("DashboardVM", "Failed to get GPS location", exception)
+                        Log.e("DashboardVM", "❌ Failed to get GPS location", exception)
                     }
             } catch (e: SecurityException) {
-                Log.e("DashboardVM", "GPS Security Error", e)
+                Log.e("DashboardVM", "🔒 GPS Security Error", e)
             }
         } else {
-            Log.w("DashboardVM", "Cannot fetch location: Permissions missing")
+            Log.w("DashboardVM", "⚠️ Location permissions missing")
         }
     }
 
     fun updateUserLocation(location: Location) {
         currentUserLocation = location
-        // Când primim locația, recalculăm distanțele pentru magazinele deja încărcate
         recalculateDistances()
     }
 
@@ -158,9 +192,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val location = currentUserLocation ?: return
         if (allStoresRaw.isEmpty()) return
 
-        Log.d("DashboardVM", "📏 Recalculating distances...")
+        Log.d("DashboardVM", "📏 Recalculating distances for ${allStoresRaw.size} stores")
 
-        // Calculăm distanța pentru fiecare magazin
         allStoresRaw.forEach { store ->
             val storeLoc = Location("store")
             storeLoc.latitude = store.Latitude
@@ -168,17 +201,14 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             store.distanceToUser = location.distanceTo(storeLoc)
         }
 
-        // Reprocesăm listele (sortare după distanță nouă)
         processData()
     }
 
     private fun processData() {
-        // Sortăm lista principală: cele mai apropiate primele
         val sortedList = allStoresRaw.sortedBy {
             if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
         }
 
-        // Umplem listele pentru UI
         nearestStoresTop5.clear()
         nearestStoresTop5.addAll(sortedList.take(5))
 
@@ -191,20 +221,18 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         updateFavoriteStores()
 
-        Log.d("DashboardVM", "✅ Data processed. Stores: ${allStoresRaw.size}")
+        Log.d("DashboardVM", "✅ Processed ${allStoresRaw.size} stores (${popular.size} popular)")
     }
 
     override fun onCleared() {
         super.onCleared()
-        // Curățăm observer-ul pentru a evita memory leaks
         if (::localStoreObserver.isInitialized) {
             storeRepository.allStores.removeObserver(localStoreObserver)
         }
         Log.d("DashboardViewModel", "=== CLEANUP COMPLETE ===")
     }
 
-    // --- ALTE FUNCȚIONALITĂȚI (Favorite, User, Analytics) ---
-
+    // Analytics
     fun logViewStore(store: StoreModel) {
         val bundle = android.os.Bundle()
         bundle.putString(FirebaseAnalytics.Param.ITEM_ID, store.getUniqueId())
@@ -214,9 +242,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         analytics.logEvent(FirebaseAnalytics.Event.SELECT_CONTENT, bundle)
     }
 
-    fun getGlobalStoreList(): List<StoreModel> {
-        return allStoresRaw
-    }
+    fun getGlobalStoreList(): List<StoreModel> = allStoresRaw
 
     // User Profile
     private fun loadUserData() {
@@ -274,7 +300,16 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         updateFavoriteStores()
     }
 
-    // Loadere pentru Bannere și Categorii (prin Repository-ul vechi)
-    fun loadCategory(): LiveData<MutableList<CategoryModel>> = dashboardRepository.loadCategory()
-    fun loadBanner(): LiveData<MutableList<BannerModel>> = dashboardRepository.loadBanner()
+    // ✅ Categoriile și banner-urile vin acum din Room (OFFLINE)
+    fun loadCategory(): LiveData<List<CategoryModel>> = dashboardRepository.allCategories
+    fun loadBanner(): LiveData<List<BannerModel>> = dashboardRepository.allBanners
 }
+
+// ✅ NOTĂ DESPRE DashboardScreen.kt:
+// Schimbă observeAsState de la:
+// val categoryList by viewModel.loadCategory().observeAsState(initial = emptyList())
+// val bannerList by viewModel.loadBanner().observeAsState(initial = emptyList())
+//
+// La:
+// val categoryList by viewModel.loadCategory().observeAsState(emptyList())
+// val bannerList by viewModel.loadBanner().observeAsState(emptyList())
