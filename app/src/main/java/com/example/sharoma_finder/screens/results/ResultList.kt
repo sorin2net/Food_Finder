@@ -38,18 +38,18 @@ fun ResultList(
     val viewModel: ResultsViewModel = viewModel()
 
     var searchText by rememberSaveable { mutableStateOf("") }
-    var selectedCategoryName by remember { mutableStateOf("") }
 
-    // ✅ ADDED: Error state management
+    // ✅ MODIFICAT: Acum stocăm TAG-ul selectat în loc de nume subcategorie
+    var selectedTag by remember { mutableStateOf("") }
+
     var hasError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    // Subcategories
+    // Subcategories (acestea rămân la fel - Burger, Pizza, Sushi, etc.)
     val subCategoryState by remember(id) {
         viewModel.loadSubCategory(id)
     }.observeAsState(Resource.Loading())
 
-    // ✅ IMPROVED: Handle subcategory errors
     val subCategoryList = when (subCategoryState) {
         is Resource.Success -> subCategoryState.data ?: emptyList()
         is Resource.Error -> {
@@ -65,11 +65,19 @@ fun ResultList(
     val showSubCategoryLoading = subCategoryState is Resource.Loading
     val subCategorySnapshot = remember(subCategoryList) { listToSnapshot(subCategoryList) }
 
-    // ✅ IMPROVED: Validate data before filtering
-    val categoryPopularList = remember(allGlobalStores, id) {
+    // ✅ MODIFICAT: Filtrăm după CategoryId și după Tag-uri (dacă e selectat un tag)
+    val categoryPopularList = remember(allGlobalStores, id, selectedTag) {
         try {
-            allGlobalStores.filter {
-                it.CategoryId == id && it.IsPopular && it.isValid()
+            allGlobalStores.filter { store ->
+                val matchesCategory = store.CategoryId == id && store.IsPopular && store.isValid()
+
+                // Dacă nu e selectat niciun tag, arată toate magazinele din categorie
+                if (selectedTag.isEmpty()) {
+                    matchesCategory
+                } else {
+                    // Dacă e selectat un tag, arată doar magazinele care au acel tag
+                    matchesCategory && store.hasTag(selectedTag)
+                }
             }
         } catch (e: Exception) {
             hasError = true
@@ -78,11 +86,19 @@ fun ResultList(
         }
     }
 
-    val categoryNearestList = remember(allGlobalStores, id, userLocation) {
+    // ✅ MODIFICAT: Același lucru pentru Nearest
+    val categoryNearestList = remember(allGlobalStores, id, userLocation, selectedTag) {
         try {
-            val filtered = allGlobalStores.filter {
-                it.CategoryId == id && it.isValid()
+            val filtered = allGlobalStores.filter { store ->
+                val matchesCategory = store.CategoryId == id && store.isValid()
+
+                if (selectedTag.isEmpty()) {
+                    matchesCategory
+                } else {
+                    matchesCategory && store.hasTag(selectedTag)
+                }
             }
+
             if (userLocation != null) {
                 filtered.sortedBy {
                     if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
@@ -100,7 +116,7 @@ fun ResultList(
     val popularSnapshot = remember(categoryPopularList) { listToSnapshot(categoryPopularList) }
     val nearestSnapshot = remember(categoryNearestList) { listToSnapshot(categoryNearestList) }
 
-    // Search logic
+    // ✅ MODIFICAT: Search caută și în Tag-uri
     val searchResults = remember(searchText, allGlobalStores) {
         if (searchText.isEmpty()) {
             emptyList()
@@ -110,7 +126,11 @@ fun ResultList(
                     .filter { store ->
                         store.isValid() && (
                                 store.Title.contains(searchText, ignoreCase = true) ||
-                                        store.Address.contains(searchText, ignoreCase = true)
+                                        store.Address.contains(searchText, ignoreCase = true) ||
+                                        // ✅ NOU: Caută și în tag-uri
+                                        store.Tags.any { tag ->
+                                            tag.contains(searchText, ignoreCase = true)
+                                        }
                                 )
                     }
                     .sortedBy {
@@ -124,7 +144,6 @@ fun ResultList(
         }
     }
 
-    // ✅ ADDED: Show error screen if something went wrong
     if (hasError) {
         ErrorScreen(
             message = errorMessage,
@@ -204,55 +223,71 @@ fun ResultList(
             }
 
         } else {
-            // Standard Lists
+            // ✅ MODIFICAT: Când apeși pe subcategorie (Burger, Pizza, etc.),
+            // setăm selectedTag în loc de selectedCategoryName
             item {
                 SubCategory(
                     subCategory = subCategorySnapshot,
                     showSubCategoryLoading = showSubCategoryLoading,
-                    selectedCategoryName = selectedCategoryName,
-                    onCategoryClick = { clickedName ->
-                        selectedCategoryName = if (selectedCategoryName == clickedName) "" else clickedName
+                    selectedCategoryName = selectedTag, // Folosim același parametru
+                    onCategoryClick = { clickedTag ->
+                        // Dacă dai click pe același tag, îl deselectezi (arată tot)
+                        selectedTag = if (selectedTag == clickedTag) "" else clickedTag
                     }
                 )
             }
 
-            val filteredPopular = if (selectedCategoryName.isEmpty()) popularSnapshot else {
-                val filtered = categoryPopularList.filter {
-                    it.Activity.equals(selectedCategoryName, ignoreCase = true)
-                }
-                listToSnapshot(filtered)
-            }
-
-            val filteredNearest = if (selectedCategoryName.isEmpty()) nearestSnapshot else {
-                val filtered = categoryNearestList.filter {
-                    it.Activity.equals(selectedCategoryName, ignoreCase = true)
-                }
-                listToSnapshot(filtered)
-            }
-
+            // ✅ IMPORTANT: Nu mai facem filtrare aici, o facem mai sus în remember()
             item {
-                if (filteredPopular.isNotEmpty()) {
+                if (popularSnapshot.isNotEmpty()) {
                     PopularSection(
-                        list = filteredPopular,
+                        list = popularSnapshot,
                         showPopularLoading = false,
                         onStoreClick = onStoreClick,
                         onSeeAllClick = { onSeeAllClick("popular") },
                         isStoreFavorite = isStoreFavorite,
                         onFavoriteToggle = onFavoriteToggle
                     )
+                } else if (selectedTag.isNotEmpty()) {
+                    // Mesaj când nu există restaurante cu tag-ul selectat
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "No popular stores found with tag \"$selectedTag\"",
+                            color = Color.Gray,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
                 }
             }
 
             item {
-                if (filteredNearest.isNotEmpty()) {
+                if (nearestSnapshot.isNotEmpty()) {
                     NearestList(
-                        list = filteredNearest,
+                        list = nearestSnapshot,
                         showNearestLoading = false,
                         onStoreClick = onStoreClick,
                         onSeeAllClick = { onSeeAllClick("nearest") },
                         isStoreFavorite = isStoreFavorite,
                         onFavoriteToggle = onFavoriteToggle
                     )
+                } else if (selectedTag.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "No nearby stores found with tag \"$selectedTag\"",
+                            color = Color.Gray,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
                 }
             }
         }
