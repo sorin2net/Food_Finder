@@ -15,9 +15,9 @@ class UserManager(private val context: Context) {
         sharedPreferences.edit { putString("user_name", name) }
     }
 
-    // Citește numele (default "Costi")
+    // Citește numele (default "Utilizatorule")
     fun getName(): String {
-        return sharedPreferences.getString("user_name", "Costi") ?: "Costi"
+        return sharedPreferences.getString("user_name", "Utilizatorule") ?: "Utilizatorule"
     }
 
     // Salvează calea pozei (String)

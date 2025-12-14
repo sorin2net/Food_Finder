@@ -1,8 +1,10 @@
 package com.example.sharoma_finder.screens.dashboard
 
+import android.widget.Toast // ✅ Import necesar pentru Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.* // ✅ Importuri pentru animație
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,17 +12,20 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh // ✅ Iconita de refresh standard
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate // ✅ Modificator pentru rotație
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext // ✅ Context pentru Toast
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign // Import necesar adăugat
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -30,11 +35,11 @@ import java.io.File
 
 @Composable
 fun ProfileScreen(viewModel: DashboardViewModel) {
-    // Stare pentru Dialogul de editare nume
+    val context = LocalContext.current // ✅ Obținem contextul pentru Toast
+
     var showEditDialog by remember { mutableStateOf(false) }
     var tempName by remember { mutableStateOf("") }
 
-    // Launcher pentru Galerie (Photo Picker)
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
@@ -42,6 +47,20 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
             viewModel.updateUserImage(uri)
         }
     }
+
+    // ✅ LOGICA PENTRU ANIMAȚIE
+    // Creăm o tranziție infinită
+    val infiniteTransition = rememberInfiniteTransition(label = "refresh_spin")
+
+    // Calculăm unghiul de rotație doar dacă viewModel.isRefreshing este true
+    val angle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing)
+        ),
+        label = "spin_angle"
+    )
 
     Box(
         modifier = Modifier
@@ -53,6 +72,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(top = 64.dp)
         ) {
+            // ... (Codul pentru Titlu, Poza de profil și Nume rămâne neschimbat) ...
             Text(
                 text = "My Profile",
                 fontSize = 28.sp,
@@ -68,7 +88,6 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                     .clip(CircleShape)
                     .background(Color.Gray)
                     .clickable {
-                        // Deschide galeria cand apesi pe poza
                         photoPickerLauncher.launch(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                         )
@@ -83,14 +102,12 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                     )
                 } else {
                     Image(
-                        painter = painterResource(R.drawable.profile), // Poza default
+                        painter = painterResource(R.drawable.profile),
                         contentDescription = "Default Profile",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
-
-                // Iconita de camera mica peste poza (optional, pentru design)
                 Icon(
                     painter = painterResource(android.R.drawable.ic_menu_camera),
                     contentDescription = null,
@@ -127,25 +144,43 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                 }
             }
 
-            // --- SECȚIUNEA DE DEBUGGING ADĂUGATĂ ---
             Spacer(modifier = Modifier.height(32.dp))
 
-            // ✅ BUTON DE DEBUGGING
+            // ✅ BUTONUL CU ANIMAȚIE ȘI TOAST
             Button(
                 onClick = {
-                    viewModel.forceRefreshAllData()
+                    // Apelăm funcția din ViewModel și definim ce se întâmplă la final (onFinished)
+                    viewModel.forceRefreshAllData {
+                        Toast.makeText(context, "Everything refreshed! 🚀", Toast.LENGTH_SHORT).show()
+                    }
                 },
+                // Dezactivăm butonul în timpul încărcării pentru a preveni dublu-click
+                enabled = !viewModel.isRefreshing.value,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = colorResource(R.color.gold)
+                    containerColor = colorResource(R.color.gold),
+                    disabledContainerColor = Color.DarkGray // Culoare când e dezactivat
                 ),
                 modifier = Modifier.padding(horizontal = 32.dp)
             ) {
-                Text(
-                    text = "🔄 Force Refresh Data",
-                    color = Color.Black,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Dacă se încarcă, folosim unghiul animat. Dacă nu, stă fix.
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh",
+                        tint = if (viewModel.isRefreshing.value) Color.Gray else Color.Black,
+                        modifier = Modifier
+                            .rotate(if (viewModel.isRefreshing.value) angle else 0f) // Aici aplicăm rotația
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text(
+                        text = if (viewModel.isRefreshing.value) "Refreshing..." else "Force Refresh Data",
+                        color = if (viewModel.isRefreshing.value) Color.Gray else Color.Black,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             Text(
@@ -157,7 +192,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
             )
         }
 
-        // --- DIALOGUL DE EDITARE NUME ---
+        // ... (Codul pentru Dialogul de editare nume rămâne neschimbat) ...
         if (showEditDialog) {
             AlertDialog(
                 onDismissRequest = { showEditDialog = false },

@@ -38,7 +38,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val dashboardRepository = DashboardRepository(
         database.categoryDao(),
         database.bannerDao(),
-        database.subCategoryDao()  // ✅ ADĂUGAT
+        database.subCategoryDao()
     )
 
     private lateinit var localStoreObserver: Observer<List<StoreModel>>
@@ -52,6 +52,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val allStoresRaw = mutableListOf<StoreModel>()
 
     val isDataLoaded = mutableStateOf(false)
+
+    // ✅ ADĂUGAT: Stare pentru a urmări dacă se face refresh (pentru animație)
+    var isRefreshing = mutableStateOf(false)
+        private set
+
     var userName = mutableStateOf("Utilizatorule")
     var userImagePath = mutableStateOf<String?>(null)
     var currentUserLocation: Location? = null
@@ -90,7 +95,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     }
 
                     // ✅ FIX CRITIC: Setăm isDataLoaded = true IMEDIAT
-                    // Categoriile și banner-ele se încarcă prin LiveData observeAsState
                     isDataLoaded.value = true
                 }
             } catch (e: Exception) {
@@ -135,7 +139,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     launch { storeRepository.refreshStores() }
                     launch { dashboardRepository.refreshCategories() }
                     launch { dashboardRepository.refreshBanners() }
-                    launch { dashboardRepository.refreshSubCategories() }  // ✅ ADĂUGAT
+                    launch { dashboardRepository.refreshSubCategories() }
                 }
                 Log.d("DashboardVM", "✅ Network sync completed")
             } catch (e: Exception) {
@@ -152,34 +156,47 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     /**
-     * ✅ FUNCȚIE DE DEBUGGING: Forțează refresh complet
+     * ✅ ACTUALIZAT: Funcție de debugging cu animație și callback
      * Șterge tot cache-ul și descarcă date noi de pe Firebase
      */
-    fun forceRefreshAllData() {
+    fun forceRefreshAllData(onFinished: () -> Unit) {
+        // Dacă deja se încarcă, nu facem nimic
+        if (isRefreshing.value) return
+
+        isRefreshing.value = true // Pornim animația
+
         viewModelScope.launch {
             Log.d("DashboardVM", "🔄 FORCE REFRESH STARTED")
 
             try {
                 withContext(Dispatchers.IO) {
                     // Șterge tot cache-ul
-                    // NOTA: Asigură-te că StoreRepository are metoda clearCache().
-                    // Dacă nu, poți folosi: database.storeDao().deleteAll()
                     launch { storeRepository.clearCache() }
                     launch { database.categoryDao().deleteAll() }
                     launch { database.bannerDao().deleteAll() }
                     launch { database.subCategoryDao().deleteAll() }
                 }
 
-                // Așteaptă 500ms să se finalizeze ștergerea
+                // Așteaptă puțin pentru a fi siguri că ștergerea e gata
                 kotlinx.coroutines.delay(500)
 
                 // Reîncarcă de pe Firebase
                 refreshDataFromNetwork()
 
+                // Opțional: Mai adăugăm un delay mic artificial ca să se vadă animația
+                // dacă netul e prea rapid (UX mai bun)
+                kotlinx.coroutines.delay(1000)
+
                 Log.d("DashboardVM", "✅ FORCE REFRESH COMPLETED")
 
             } catch (e: Exception) {
                 Log.e("DashboardVM", "❌ Force refresh failed: ${e.message}")
+            } finally {
+                // ✅ IMPORTANT: Oprim animația și notificăm UI-ul
+                withContext(Dispatchers.Main) {
+                    isRefreshing.value = false
+                    onFinished() // Aici se va declanșa Toast-ul
+                }
             }
         }
     }
