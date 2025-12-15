@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.net.Uri
 import android.util.Log
+import android.widget.Toast // ✅ Adaugat pentru feedback direct
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.app.ActivityCompat
@@ -25,6 +26,7 @@ import com.example.sharoma_finder.repository.UserManager
 import com.google.android.gms.location.LocationServices
 import com.google.firebase.analytics.FirebaseAnalytics
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -33,7 +35,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val favoritesManager = FavoritesManager(application.applicationContext)
     private val userManager = UserManager(application.applicationContext)
 
-    // ✅ ADĂUGAT: Manager pentru consimțământ internet
+    // ✅ Manager pentru consimțământ internet
     private val internetConsentManager = InternetConsentManager(application.applicationContext)
 
     private val analytics = FirebaseAnalytics.getInstance(application.applicationContext)
@@ -65,7 +67,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     var isRefreshing = mutableStateOf(false)
         private set
 
-    // ✅ ADĂUGAT: Flag pentru starea internetului
+    // ✅ Flag pentru starea internetului
     var hasInternetAccess = mutableStateOf(false)
         private set
 
@@ -79,47 +81,41 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         loadUserData()
         loadFavorites()
 
-        // ✅ MODIFICAT: Verificăm consimțământul la pornire
+        // ✅ Verificăm consimțământul la pornire
         checkInternetConsent()
 
         checkLocalCache()
         observeLocalDatabase()
 
-        // ✅ MODIFICAT: Sincronizarea se face doar dacă avem consimțământ
-        if (internetConsentManager.hasInternetConsent()) {
+        // ✅ Sincronizarea se face doar dacă avem consimțământ ȘI internet fizic
+        if (internetConsentManager.canUseInternet()) {
             refreshDataFromNetwork()
         } else {
-            Log.w("DashboardViewModel", "⚠️ No internet consent - skipping network sync")
+            Log.w("DashboardViewModel", "⚠️ No internet access/consent - skipping network sync")
         }
     }
 
-    /**
-     * ✅ NOU: Verifică starea consimțământului internet
-     */
     private fun checkInternetConsent() {
         hasInternetAccess.value = internetConsentManager.canUseInternet()
         Log.d("DashboardViewModel", "Internet access: ${hasInternetAccess.value}")
     }
 
-    /**
-     * ✅ NOU: Activează funcționalitățile internet (după ce utilizatorul acceptă)
-     */
     fun enableInternetFeatures() {
         Log.d("DashboardViewModel", "✅ Enabling internet features")
-        hasInternetAccess.value = true
-
-        // Pornim sincronizarea cu Firebase
-        refreshDataFromNetwork()
+        // Mai întâi verificăm dacă avem hardware internet
+        if (internetConsentManager.isInternetAvailable()) {
+            hasInternetAccess.value = true
+            refreshDataFromNetwork()
+        } else {
+            Log.w("DashboardViewModel", "❌ Internet enabled by user but NO CONNECTION detected")
+            // Putem seta true la preferință, dar funcțional nu va merge sync-ul
+            hasInternetAccess.value = true
+        }
     }
 
-    /**
-     * ✅ NOU: Dezactivează funcționalitățile internet (după ce utilizatorul refuză)
-     */
     fun disableInternetFeatures() {
         Log.d("DashboardViewModel", "❌ Disabling internet features")
         hasInternetAccess.value = false
-
-        // Aplicația va funcționa doar cu datele din cache
         Log.d("DashboardViewModel", "Operating in OFFLINE mode - using cached data only")
     }
 
@@ -180,9 +176,12 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun refreshDataFromNetwork() {
-        // ✅ VERIFICARE: Nu încercăm sync dacă nu avem consimțământ
+        // ✅ VERIFICARE DUBLĂ: Consimțământ + Conexiune Fizică
         if (!internetConsentManager.hasInternetConsent()) {
-            Log.w("DashboardVM", "⚠️ Skipping network sync - no internet consent")
+            return
+        }
+        if (!internetConsentManager.isInternetAvailable()) {
+            Log.w("DashboardVM", "⚠️ No physical internet connection - Sync skipped")
             return
         }
 
@@ -201,7 +200,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 Log.e("DashboardVM", "❌ Network sync failed: ${e.message}")
             }
 
-            kotlinx.coroutines.delay(5000)
+            // Safety timeout
+            delay(5000)
             if (!isDataLoaded.value) {
                 Log.w("DashboardVM", "⏰ Timeout - forcing loaded state")
                 isDataLoaded.value = true
@@ -209,12 +209,28 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    /**
+     * ✅ PROTECȚIE FORCE REFRESH
+     * Acum verifică conexiunea FIZICĂ înainte de a șterge ceva.
+     */
     fun forceRefreshAllData(onFinished: () -> Unit) {
-        // ✅ VERIFICARE: Nu permitem refresh dacă nu avem consimțământ
+        // 1. Verifică dacă utilizatorul a dat voie (din Switch)
         if (!internetConsentManager.hasInternetConsent()) {
-            Log.w("DashboardVM", "⚠️ Cannot refresh - no internet consent")
-            onFinished() // Chemăm callback-ul imediat
+            Log.w("DashboardVM", "⚠️ Cannot refresh - Internet access disabled in settings")
+            onFinished()
             return
+        }
+
+        // 2. ✅ PROTECȚIE CRITICĂ: Verifică dacă telefonul are efectiv internet
+        if (!internetConsentManager.isInternetAvailable()) {
+            Log.e("DashboardVM", "⛔ BLOCKED: Attempted to wipe cache without internet connection!")
+
+            // Afișăm un mesaj utilizatorului pe Main Thread
+            viewModelScope.launch(Dispatchers.Main) {
+                Toast.makeText(getApplication(), "No internet connection! Cache kept safe. 🛡️", Toast.LENGTH_LONG).show()
+                onFinished()
+            }
+            return // ⛔ OPRIT - Nu ștergem nimic!
         }
 
         if (isRefreshing.value) return
@@ -226,17 +242,16 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
             try {
                 withContext(Dispatchers.IO) {
+                    // Doar acum, când suntem siguri că avem net, ștergem cache-ul
                     launch { storeRepository.clearCache() }
                     launch { database.categoryDao().deleteAll() }
                     launch { database.bannerDao().deleteAll() }
                     launch { database.subCategoryDao().deleteAll() }
                 }
 
-                kotlinx.coroutines.delay(500)
-
-                refreshDataFromNetwork()
-
-                kotlinx.coroutines.delay(1000)
+                delay(500)
+                refreshDataFromNetwork() // Descarcă datele noi
+                delay(1000)
 
                 Log.d("DashboardVM", "✅ FORCE REFRESH COMPLETED")
 

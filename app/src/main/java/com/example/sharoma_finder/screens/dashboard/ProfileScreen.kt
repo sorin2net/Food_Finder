@@ -1,5 +1,10 @@
 package com.example.sharoma_finder.screens.dashboard
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -14,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SignalWifiOff
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.*
@@ -42,6 +48,10 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
 
     var showEditDialog by remember { mutableStateOf(false) }
     var tempName by remember { mutableStateOf("") }
+
+    // ✅ MONITORIZARE INTERNET LIVE
+    // Această funcție este definită la finalul acestui fișier!
+    val isSystemOnline by rememberConnectivityState()
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -153,7 +163,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                     .padding(horizontal = 32.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = colorResource(R.color.black3)
+                    containerColor = if (isSystemOnline) colorResource(R.color.black3) else Color.DarkGray.copy(alpha = 0.5f)
                 )
             ) {
                 Row(
@@ -162,10 +172,23 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Icon logic
+                    val icon = when {
+                        !isSystemOnline -> Icons.Default.SignalWifiOff // Fără semnal
+                        viewModel.hasInternetAccess.value -> Icons.Default.Wifi // Online
+                        else -> Icons.Default.WifiOff // Oprit manual
+                    }
+
+                    val iconColor = when {
+                        !isSystemOnline -> Color.Red
+                        viewModel.hasInternetAccess.value -> colorResource(R.color.gold)
+                        else -> Color.Gray
+                    }
+
                     Icon(
-                        imageVector = if (viewModel.hasInternetAccess.value) Icons.Default.Wifi else Icons.Default.WifiOff,
+                        imageVector = icon,
                         contentDescription = "Internet",
-                        tint = if (viewModel.hasInternetAccess.value) colorResource(R.color.gold) else Color.Gray,
+                        tint = iconColor,
                         modifier = Modifier.size(32.dp)
                     )
 
@@ -173,27 +196,30 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Internet Access",
+                            text = if (isSystemOnline) "Internet Access" else "No Connection",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = if(isSystemOnline) Color.White else Color.LightGray
                         )
                         Text(
-                            text = if (viewModel.hasInternetAccess.value) "Online mode" else "Offline mode",
+                            text = when {
+                                !isSystemOnline -> "Check device settings"
+                                viewModel.hasInternetAccess.value -> "Online mode"
+                                else -> "Offline mode"
+                            },
                             fontSize = 12.sp,
                             color = Color.Gray
                         )
                     }
 
                     Switch(
-                        checked = viewModel.hasInternetAccess.value,
+                        checked = viewModel.hasInternetAccess.value && isSystemOnline,
+                        enabled = isSystemOnline, // ✅ Dezactivat dacă telefonul nu are net
                         onCheckedChange = { enabled ->
                             if (enabled) {
-                                // ✅ FIX: Use enableInternetFeatures instead of grantInternetConsent
                                 viewModel.enableInternetFeatures()
                                 Toast.makeText(context, "Internet enabled ✅", Toast.LENGTH_SHORT).show()
                             } else {
-                                // ✅ FIX: Use disableInternetFeatures instead of revokeInternetConsent
                                 viewModel.disableInternetFeatures()
                                 Toast.makeText(context, "Internet disabled ❌", Toast.LENGTH_SHORT).show()
                             }
@@ -202,15 +228,17 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                             checkedThumbColor = colorResource(R.color.gold),
                             checkedTrackColor = colorResource(R.color.gold).copy(alpha = 0.5f),
                             uncheckedThumbColor = Color.Gray,
-                            uncheckedTrackColor = Color.DarkGray
+                            uncheckedTrackColor = Color.DarkGray,
+                            disabledCheckedTrackColor = Color.DarkGray,
+                            disabledUncheckedTrackColor = Color.DarkGray
                         )
                     )
                 }
             }
 
             Text(
-                text = "Disable to use only cached data (offline mode)",
-                color = Color.Gray,
+                text = if (!isSystemOnline) "System offline. Cached data only." else "Disable to use only cached data (offline mode)",
+                color = if(!isSystemOnline) Color.Red else Color.Gray,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)
@@ -220,13 +248,16 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
             Spacer(modifier = Modifier.height(24.dp))
 
             // --- FORCE REFRESH BUTTON ---
+            // ✅ Dezactivat complet dacă nu e sistemul online
+            val canRefresh = !viewModel.isRefreshing.value && viewModel.hasInternetAccess.value && isSystemOnline
+
             Button(
                 onClick = {
                     viewModel.forceRefreshAllData {
                         Toast.makeText(context, "Everything refreshed! 🚀", Toast.LENGTH_SHORT).show()
                     }
                 },
-                enabled = !viewModel.isRefreshing.value && viewModel.hasInternetAccess.value, // ✅ Dezactivat dacă e offline
+                enabled = canRefresh,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = colorResource(R.color.gold),
                     disabledContainerColor = Color.DarkGray
@@ -237,7 +268,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = "Refresh",
-                        tint = if (viewModel.isRefreshing.value || !viewModel.hasInternetAccess.value) Color.Gray else Color.Black,
+                        tint = if (canRefresh) Color.Black else Color.Gray,
                         modifier = Modifier.rotate(if (viewModel.isRefreshing.value) angle else 0f)
                     )
 
@@ -245,11 +276,12 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
 
                     Text(
                         text = when {
-                            !viewModel.hasInternetAccess.value -> "Offline"
+                            !isSystemOnline -> "No Internet"
+                            !viewModel.hasInternetAccess.value -> "Offline Mode"
                             viewModel.isRefreshing.value -> "Refreshing..."
                             else -> "Force Refresh Data"
                         },
-                        color = if (viewModel.isRefreshing.value || !viewModel.hasInternetAccess.value) Color.Gray else Color.Black,
+                        color = if (canRefresh) Color.Black else Color.Gray,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -257,10 +289,10 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
             }
 
             Text(
-                text = if (viewModel.hasInternetAccess.value) {
-                    "Force download latest data from Firebase"
-                } else {
-                    "Enable internet access to refresh data"
+                text = when {
+                    !isSystemOnline -> "Cannot refresh without connection"
+                    viewModel.hasInternetAccess.value -> "Force download latest data from Firebase"
+                    else -> "Enable internet access to refresh data"
                 },
                 color = Color.Gray,
                 fontSize = 12.sp,
@@ -309,4 +341,49 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
             )
         }
     }
+}
+
+/**
+ * ✅ HELPER PENTRU CONEXIUNE (Acesta lipsea!)
+ * Pune acest cod la finalul fișierului ProfileScreen.kt
+ */
+@Composable
+fun rememberConnectivityState(): State<Boolean> {
+    val context = LocalContext.current
+    val connectivityManager = remember {
+        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    }
+
+    // Funcție ajutătoare pentru starea inițială
+    fun isConnected(): Boolean {
+        val network = connectivityManager.activeNetwork ?: return false
+        val caps = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    val isOnline = remember { mutableStateOf(isConnected()) }
+
+    DisposableEffect(connectivityManager) {
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                isOnline.value = true
+            }
+
+            override fun onLost(network: Network) {
+                isOnline.value = false
+            }
+        }
+
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+
+        connectivityManager.registerNetworkCallback(request, callback)
+
+        onDispose {
+            connectivityManager.unregisterNetworkCallback(callback)
+        }
+    }
+
+    return isOnline
 }
