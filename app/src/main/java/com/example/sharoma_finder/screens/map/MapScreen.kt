@@ -4,7 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.util.Log // ✅ ADĂUGAT PENTRU LOGGING
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -33,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.screens.results.ItemsNearest
@@ -76,85 +79,121 @@ fun MapScreen(
     }
 
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Poziția magazinului
     val storeLatlng = LatLng(store.Latitude, store.Longitude)
 
-    // State pentru locația utilizatorului (LIVE)
+    // ✅ FIX: Verificăm permisiunile LIVE
+    var hasLocationPermission by remember { mutableStateOf(false) }
     var userLocation by remember { mutableStateOf<LatLng?>(null) }
 
-    // Camera inițial centrată pe magazin
+    // Camera centrată pe magazin
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(storeLatlng, 15f)
     }
 
-    // Marker state pentru magazin (fix)
     val storeMarkerState = remember { MarkerState(position = storeLatlng) }
 
-    // ✅ TRACKING LIVE AL LOCAȚIEI UTILIZATORULUI (CU MEMORY LEAK FIX)
-    DisposableEffect(Unit) {
-        Log.d("MapScreen", "🗺️ MapScreen started - Setting up location tracking")
+    // ✅ FUNCȚIE HELPER: Verifică permisiunile
+    fun checkPermissions(): Boolean {
+        val fineLocation = ActivityCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val coarseLocation = ActivityCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        return fineLocation || coarseLocation
+    }
+
+    // ✅ OBSERVER PENTRU LIFECYCLE (detectează când app-ul revine în foreground)
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                // Când userul se întoarce în app, verificăm din nou permisiunile
+                val currentPermission = checkPermissions()
+
+                if (hasLocationPermission && !currentPermission) {
+                    // Permisiunea a fost REVOCATĂ → Ștergem locația
+                    Log.w("MapScreen", "⚠️ Location permission REVOKED - Removing marker")
+                    userLocation = null
+                }
+
+                hasLocationPermission = currentPermission
+                Log.d("MapScreen", "📍 Permission check on resume: $hasLocationPermission")
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // ✅ TRACKING LOCAȚIE LIVE (cu verificare permisiuni)
+    DisposableEffect(hasLocationPermission) {
+        Log.d("MapScreen", "🗺️ MapScreen started")
+
+        // Verificăm permisiunile la start
+        val currentPermission = checkPermissions()
+        hasLocationPermission = currentPermission
+
+        if (!currentPermission) {
+            Log.w("MapScreen", "❌ No location permissions - Blue marker will NOT appear")
+            // ✅ FIX: Trebuie să returnăm onDispose chiar dacă nu facem nimic
+            return@DisposableEffect onDispose { }
+        }
 
         val fusedLocationClient: FusedLocationProviderClient =
             LocationServices.getFusedLocationProviderClient(context)
 
-        // Cerere de locație cu update-uri frecvente
         val locationRequest = LocationRequest.Builder(
-            Priority.PRIORITY_HIGH_ACCURACY, // Precizie maximă
+            Priority.PRIORITY_HIGH_ACCURACY,
             5000L // Update la fiecare 5 secunde
         ).apply {
-            setMinUpdateIntervalMillis(2000L) // Minim 2 secunde între update-uri
-            setMaxUpdateDelayMillis(10000L) // Maxim 10 secunde delay
+            setMinUpdateIntervalMillis(2000L)
+            setMaxUpdateDelayMillis(10000L)
         }.build()
 
         val locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
+                // ✅ RE-VERIFICĂM permisiunile la FIECARE update
+                if (!checkPermissions()) {
+                    Log.w("MapScreen", "⚠️ Permission lost during tracking - Stopping")
+                    userLocation = null
+                    fusedLocationClient.removeLocationUpdates(this)
+                    return
+                }
+
                 locationResult.lastLocation?.let { location ->
-                    // ✅ Actualizăm poziția utilizatorului LIVE
                     userLocation = LatLng(location.latitude, location.longitude)
-                    Log.d("MapScreen", "📍 Location updated: ${location.latitude}, ${location.longitude}")
+                    Log.d("MapScreen", "📍 Live update: ${location.latitude}, ${location.longitude}")
                 }
             }
         }
 
-        // Verificăm permisiunile
-        if (ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED ||
-            ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            try {
-                // Pornim tracking-ul live
-                fusedLocationClient.requestLocationUpdates(
-                    locationRequest,
-                    locationCallback,
-                    null // Main Looper
-                )
-                Log.d("MapScreen", "✅ Location updates started")
-            } catch (e: SecurityException) {
-                Log.e("MapScreen", "❌ Security exception: ${e.message}")
-            }
-        } else {
-            Log.w("MapScreen", "⚠️ No location permissions")
+        try {
+            fusedLocationClient.requestLocationUpdates(
+                locationRequest,
+                locationCallback,
+                null
+            )
+            Log.d("MapScreen", "✅ Location tracking STARTED")
+        } catch (e: SecurityException) {
+            Log.e("MapScreen", "❌ Security exception: ${e.message}")
         }
 
-        // ✅ CLEANUP COMPLET când părăsim ecranul
         onDispose {
-            Log.d("MapScreen", "🧹 MapScreen disposed - Cleaning up resources")
+            Log.d("MapScreen", "🧹 Cleaning up location tracking")
             try {
-                // 1. Oprește location updates
                 fusedLocationClient.removeLocationUpdates(locationCallback)
-                Log.d("MapScreen", "✅ Location updates stopped")
-
-                // 2. Curăță referințele pentru a preveni memory leak
                 userLocation = null
-
-                // 3. Forțează garbage collection hint (opțional, dar bun pentru siguranță aici)
                 System.gc()
+                Log.d("MapScreen", "✅ Cleanup complete")
             } catch (e: Exception) {
                 Log.e("MapScreen", "❌ Cleanup error: ${e.message}")
             }
@@ -174,7 +213,7 @@ fun MapScreen(
                 },
             cameraPositionState = cameraPositionState
         ) {
-            // ✅ MARKER 1: MAGAZINUL (PIN ROȘU)
+            // ✅ MARKER 1: MAGAZINUL (Roșu - ÎNTOTDEAUNA vizibil)
             Marker(
                 state = storeMarkerState,
                 title = store.Title,
@@ -182,10 +221,16 @@ fun MapScreen(
                 icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
             )
 
-            // ✅ MARKER 2: UTILIZATORUL (PIN ALBASTRU - se mișcă live)
-            userLocation?.let { location ->
+            // ✅ MARKER 2: UTILIZATORUL (Albastru - DOAR dacă are permisiune ȘI locație)
+            if (hasLocationPermission && userLocation != null) {
+                // ✅ FIX: Folosim remember(userLocation) pentru a crea state-ul.
+                // Asta elimină warning-ul și asigură că marker-ul se mută doar când locația se schimbă.
+                val userMarkerState = remember(userLocation) {
+                    MarkerState(position = userLocation!!)
+                }
+
                 Marker(
-                    state = MarkerState(position = location),
+                    state = userMarkerState,
                     title = "Your Location",
                     snippet = "You are here",
                     icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)
