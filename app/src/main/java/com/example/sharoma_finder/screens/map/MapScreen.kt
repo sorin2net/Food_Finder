@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.util.Log // ✅ ADĂUGAT PENTRU LOGGING
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -90,13 +91,10 @@ fun MapScreen(
     // Marker state pentru magazin (fix)
     val storeMarkerState = remember { MarkerState(position = storeLatlng) }
 
-    // Marker state pentru utilizator (se updatează live)
-    val userMarkerState = remember {
-        userLocation?.let { MarkerState(position = it) }
-    }
-
-    // ✅ TRACKING LIVE AL LOCAȚIEI UTILIZATORULUI
+    // ✅ TRACKING LIVE AL LOCAȚIEI UTILIZATORULUI (CU MEMORY LEAK FIX)
     DisposableEffect(Unit) {
+        Log.d("MapScreen", "🗺️ MapScreen started - Setting up location tracking")
+
         val fusedLocationClient: FusedLocationProviderClient =
             LocationServices.getFusedLocationProviderClient(context)
 
@@ -114,9 +112,7 @@ fun MapScreen(
                 locationResult.lastLocation?.let { location ->
                     // ✅ Actualizăm poziția utilizatorului LIVE
                     userLocation = LatLng(location.latitude, location.longitude)
-
-                    // ✅ Actualizăm și marker-ul utilizatorului
-                    userMarkerState?.position = userLocation!!
+                    Log.d("MapScreen", "📍 Location updated: ${location.latitude}, ${location.longitude}")
                 }
             }
         }
@@ -131,17 +127,37 @@ fun MapScreen(
                 Manifest.permission.ACCESS_COARSE_LOCATION
             ) == PackageManager.PERMISSION_GRANTED
         ) {
-            // Pornim tracking-ul live
-            fusedLocationClient.requestLocationUpdates(
-                locationRequest,
-                locationCallback,
-                null // Main Looper
-            )
+            try {
+                // Pornim tracking-ul live
+                fusedLocationClient.requestLocationUpdates(
+                    locationRequest,
+                    locationCallback,
+                    null // Main Looper
+                )
+                Log.d("MapScreen", "✅ Location updates started")
+            } catch (e: SecurityException) {
+                Log.e("MapScreen", "❌ Security exception: ${e.message}")
+            }
+        } else {
+            Log.w("MapScreen", "⚠️ No location permissions")
         }
 
-        // ✅ CLEANUP când părăsim ecranul (CRITIC pentru a preveni memory leak)
+        // ✅ CLEANUP COMPLET când părăsim ecranul
         onDispose {
-            fusedLocationClient.removeLocationUpdates(locationCallback)
+            Log.d("MapScreen", "🧹 MapScreen disposed - Cleaning up resources")
+            try {
+                // 1. Oprește location updates
+                fusedLocationClient.removeLocationUpdates(locationCallback)
+                Log.d("MapScreen", "✅ Location updates stopped")
+
+                // 2. Curăță referințele pentru a preveni memory leak
+                userLocation = null
+
+                // 3. Forțează garbage collection hint (opțional, dar bun pentru siguranță aici)
+                System.gc()
+            } catch (e: Exception) {
+                Log.e("MapScreen", "❌ Cleanup error: ${e.message}")
+            }
         }
     }
 
@@ -177,7 +193,7 @@ fun MapScreen(
             }
         }
 
-        // Card cu detalii magazin (la fel ca înainte)
+        // Card cu detalii magazin
         LazyColumn(
             modifier = Modifier
                 .wrapContentHeight()

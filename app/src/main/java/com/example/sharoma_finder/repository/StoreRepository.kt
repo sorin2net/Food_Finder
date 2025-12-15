@@ -2,26 +2,66 @@ package com.example.sharoma_finder.repository
 
 import android.util.Log
 import androidx.lifecycle.LiveData
+import com.example.sharoma_finder.data.CacheMetadataDao // ✅ Import
 import com.example.sharoma_finder.data.StoreDao
+import com.example.sharoma_finder.domain.CacheMetadata // ✅ Import
 import com.example.sharoma_finder.domain.StoreModel
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
-class StoreRepository(private val storeDao: StoreDao) {
+class StoreRepository(
+    private val storeDao: StoreDao,
+    private val cacheMetadataDao: CacheMetadataDao // ✅ ADĂUGAT în constructor
+) {
     private val firebaseDatabase = FirebaseDatabase.getInstance()
 
     val allStores: LiveData<List<StoreModel>> = storeDao.getAllStores()
 
+    companion object {
+        private const val CACHE_KEY_STORES = "stores"
+        private const val CACHE_VALIDITY_HOURS = 6L // Cache valabil 6 ore
+    }
+
+    // ✅ FUNCȚIE NOUĂ: Verifică dacă datele sunt proaspete
+    private suspend fun isCacheValid(): Boolean {
+        return try {
+            val metadata = cacheMetadataDao.getMetadata(CACHE_KEY_STORES)
+            if (metadata == null) return false
+
+            val now = System.currentTimeMillis()
+            val isValid = now < metadata.expiresAt
+
+            if (isValid) {
+                // Afișăm cât timp mai e valid cache-ul (în minute)
+                val remainingMinutes = (metadata.expiresAt - now) / 60000
+                Log.d("StoreRepository", "✅ Cache valid for $remainingMinutes more minutes")
+            } else {
+                Log.d("StoreRepository", "⏰ Cache EXPIRED (or missing)")
+            }
+            isValid
+        } catch (e: Exception) {
+            Log.e("StoreRepository", "Error checking cache: ${e.message}")
+            false
+        }
+    }
+
     /**
-     * ✅ VERSIUNE FINALĂ: Parsing manual pentru a gestiona CategoryId numeric
+     * ✅ VERSIUNE FINALĂ: Parsing manual + Cache Expiration
      */
-    suspend fun refreshStores() {
+    suspend fun refreshStores(forceRefresh: Boolean = false) { // ✅ Parametru nou opțional
         withContext(Dispatchers.IO) {
             try {
+                // ✅ VERIFICARE CACHE: Dacă nu forțăm și cache-ul e valid, ne oprim aici
+                // Asta economisește date și baterie!
+                if (!forceRefresh && isCacheValid()) {
+                    Log.d("StoreRepository", "📦 Using cached data (still fresh)")
+                    return@withContext
+                }
+
                 Log.d("StoreRepository", "🌍 Starting Firebase sync...")
 
                 val snapshot = withTimeoutOrNull(15000L) {
@@ -77,7 +117,21 @@ class StoreRepository(private val storeDao: StoreDao) {
 
                 // ✅ Salvăm datele valide
                 storeDao.insertAll(freshStores)
-                Log.d("StoreRepository", "💾 Saved ${freshStores.size} stores to cache")
+
+                // ✅ SALVARE METADATA: Marcăm momentul descărcării
+                val now = System.currentTimeMillis()
+                val expiresAt = now + (CACHE_VALIDITY_HOURS * 60 * 60 * 1000)
+
+                cacheMetadataDao.saveMetadata(
+                    CacheMetadata(
+                        key = CACHE_KEY_STORES,
+                        timestamp = now,
+                        expiresAt = expiresAt,
+                        itemCount = freshStores.size
+                    )
+                )
+
+                Log.d("StoreRepository", "💾 Saved ${freshStores.size} stores to cache (valid for $CACHE_VALIDITY_HOURS hours)")
 
             } catch (e: Exception) {
                 Log.e("StoreRepository", "❌ Error: ${e.javaClass.simpleName} - ${e.message}")
@@ -142,6 +196,8 @@ class StoreRepository(private val storeDao: StoreDao) {
         withContext(Dispatchers.IO) {
             try {
                 storeDao.deleteAll()
+                // ✅ Ștergem și metadata când curățăm cache-ul
+                cacheMetadataDao.deleteMetadata(CACHE_KEY_STORES)
                 Log.d("StoreRepository", "🗑️ Cache cleared")
             } catch (e: Exception) {
                 Log.e("StoreRepository", "Error clearing cache: ${e.message}")

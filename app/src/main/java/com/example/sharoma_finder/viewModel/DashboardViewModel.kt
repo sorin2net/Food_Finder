@@ -34,7 +34,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val analytics = FirebaseAnalytics.getInstance(application.applicationContext)
 
     private val database = AppDatabase.getDatabase(application)
-    private val storeRepository = StoreRepository(database.storeDao())
+
+    // ✅ MODIFICARE: Adăugăm cacheMetadataDao în constructorul Repository-ului
+    private val storeRepository = StoreRepository(
+        database.storeDao(),
+        database.cacheMetadataDao() // 👈 AICI ESTE SCHIMBAREA
+    )
+
     private val dashboardRepository = DashboardRepository(
         database.categoryDao(),
         database.bannerDao(),
@@ -136,6 +142,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 withContext(Dispatchers.IO) {
                     // Rulează toate sincronizările în paralel pentru viteză maximă
+                    // refreshStores() va verifica acum automat dacă cache-ul e expirat
                     launch { storeRepository.refreshStores() }
                     launch { dashboardRepository.refreshCategories() }
                     launch { dashboardRepository.refreshBanners() }
@@ -170,7 +177,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
             try {
                 withContext(Dispatchers.IO) {
-                    // Șterge tot cache-ul
+                    // Șterge tot cache-ul (inclusiv metadata, prin storeRepository.clearCache())
                     launch { storeRepository.clearCache() }
                     launch { database.categoryDao().deleteAll() }
                     launch { database.bannerDao().deleteAll() }
@@ -181,6 +188,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 kotlinx.coroutines.delay(500)
 
                 // Reîncarcă de pe Firebase
+                // Deoarece am șters cache-ul (inclusiv metadata), refreshStores va vedea că nu are date valide și va descărca
                 refreshDataFromNetwork()
 
                 // Opțional: Mai adăugăm un delay mic artificial ca să se vadă animația
