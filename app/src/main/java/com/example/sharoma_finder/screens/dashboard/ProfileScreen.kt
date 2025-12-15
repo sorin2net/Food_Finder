@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.sharoma_finder.R
+import com.example.sharoma_finder.screens.common.InternetConsentDialog // ✅ Asigură-te că ai acest import
 import com.example.sharoma_finder.viewModel.DashboardViewModel
 import java.io.File
 
@@ -52,6 +53,9 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
     val context = LocalContext.current
 
     var showEditDialog by remember { mutableStateOf(false) }
+    // ✅ STATE PENTRU DIALOGUL DE CONSIMȚĂMÂNT DIN PROFIL
+    var showConsentDialog by remember { mutableStateOf(false) }
+
     var tempName by remember { mutableStateOf("") }
 
     // ✅ MONITORIZARE INTERNET LIVE
@@ -66,7 +70,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
         }
     }
 
-    // ✅ LAUNCHER PENTRU PERMISIUNI LOCAȚIE (Nou)
+    // ✅ LAUNCHER PENTRU PERMISIUNI LOCAȚIE
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -74,7 +78,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                 permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
 
         if (granted) {
-            viewModel.checkLocationPermission() // Actualizăm ViewModel
+            viewModel.checkLocationPermission()
             Toast.makeText(context, "Location activated! 📍", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(context, "Permission needed for nearest stores.", Toast.LENGTH_SHORT).show()
@@ -92,6 +96,23 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
         label = "spin_angle"
     )
 
+    // ✅ AICI INSERĂM DIALOGUL (Apare peste ecran când showConsentDialog este true)
+    if (showConsentDialog) {
+        InternetConsentDialog(
+            onAccept = {
+                // Utilizatorul a acceptat: Salvăm consimțământul și pornim netul
+                viewModel.grantInternetConsentFromProfile()
+                showConsentDialog = false
+                Toast.makeText(context, "Internet Access Granted! 🌍", Toast.LENGTH_SHORT).show()
+            },
+            onDecline = {
+                // Utilizatorul a refuzat din nou: Switch-ul rămâne OFF
+                showConsentDialog = false
+                Toast.makeText(context, "Internet Access Denied ❌", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -102,7 +123,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .padding(top = 64.dp)
-                .padding(horizontal = 16.dp) // Padding lateral general
+                .padding(horizontal = 16.dp)
         ) {
             // --- TITLE ---
             Text(
@@ -182,7 +203,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp), // Ajustat padding
+                    .padding(horizontal = 16.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isSystemOnline) colorResource(R.color.black3) else Color.DarkGray.copy(alpha = 0.5f)
@@ -233,17 +254,18 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                         )
                     }
 
+                    // ✅ MODIFICARE PRINCIPALĂ: Logica Switch-ului
                     Switch(
                         checked = viewModel.hasInternetAccess.value && isSystemOnline,
                         enabled = isSystemOnline,
-                        onCheckedChange = { enabled ->
-                            if (enabled) {
-                                viewModel.enableInternetFeatures()
-                                Toast.makeText(context, "Internet enabled ✅", Toast.LENGTH_SHORT).show()
-                            } else {
-                                viewModel.disableInternetFeatures()
-                                Toast.makeText(context, "Internet disabled ❌", Toast.LENGTH_SHORT).show()
-                            }
+                        onCheckedChange = { isChecked ->
+                            // Folosim noua funcție din ViewModel care decide dacă arată dialogul
+                            viewModel.onInternetSwitchToggled(
+                                enabled = isChecked,
+                                onShowConsentDialog = {
+                                    showConsentDialog = true
+                                }
+                            )
                         },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = colorResource(R.color.gold),
@@ -265,7 +287,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                 modifier = Modifier.padding(horizontal = 32.dp, vertical = 4.dp)
             )
 
-            // ✅ ========== LOCATION PERMISSION SECTION (NOU) ==========
+            // ✅ ========== LOCATION PERMISSION SECTION ==========
             Spacer(modifier = Modifier.height(16.dp))
 
             if (!viewModel.isLocationPermissionGranted.value) {
@@ -313,7 +335,6 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                         }
                     }
                 }
-                // Text pentru deschidere setări manuale
                 Text(
                     text = "Button not working? Open Settings",
                     color = colorResource(R.color.gold),

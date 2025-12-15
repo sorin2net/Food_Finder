@@ -127,6 +127,35 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    /**
+     * ✅ LOGICĂ NOUĂ PENTRU SWITCH-UL DIN PROFIL
+     * Aceasta este chemată când userul apasă pe Switch.
+     */
+    fun onInternetSwitchToggled(enabled: Boolean, onShowConsentDialog: () -> Unit) {
+        if (enabled) {
+            // Utilizatorul vrea să pornească internetul.
+            // Verificăm dacă a dat deja consimțământ anterior.
+            if (internetConsentManager.hasInternetConsent()) {
+                // Are consimțământ -> Pornim direct
+                enableInternetFeatures()
+            } else {
+                // NU are consimțământ (a dat Deny sau e prima oară) -> Afișăm Dialogul
+                onShowConsentDialog()
+            }
+        } else {
+            // Utilizatorul vrea să oprească internetul -> Oprim direct
+            disableInternetFeatures()
+        }
+    }
+
+    /**
+     * ✅ Chemată când userul dă ACCEPT în dialogul din Profil
+     */
+    fun grantInternetConsentFromProfile() {
+        internetConsentManager.grantConsent() // Salvăm în SharedPreferences
+        enableInternetFeatures() // Pornim Firebase și sync
+    }
+
     fun enableInternetFeatures() {
         Log.d("DashboardViewModel", "✅ Enabling internet features")
         // Mai întâi verificăm dacă avem hardware internet
