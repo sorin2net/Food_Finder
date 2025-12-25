@@ -13,15 +13,19 @@ interface StoreDao {
     @Query("SELECT * FROM stores")
     fun getAllStores(): LiveData<List<StoreModel>>
 
-    // ✅ ADĂUGAT: Versiune sincronă pentru Repository-uri (funcționează instant, fără LiveData)
+    // Versiune sincronă pentru Repository-uri
     @Query("SELECT * FROM stores")
     fun getAllStoresSync(): List<StoreModel>
 
-    // Filtrare după categorie (ambele versiuni)
-    @Query("SELECT * FROM stores WHERE CategoryId = :catId")
+    /**
+     * ✅ FILTRARE DUPĂ CATEGORIE (LISTĂ)
+     * Folosim LIKE pentru a găsi ID-ul în interiorul string-ului JSON stocat în DB.
+     * Exemplu: Dacă CategoryIds este '["0", "1"]', căutarea după "1" va returna acest magazin.
+     */
+    @Query("SELECT * FROM stores WHERE CategoryIds LIKE '%' || :catId || '%'")
     fun getStoresByCategory(catId: String): LiveData<List<StoreModel>>
 
-    @Query("SELECT * FROM stores WHERE CategoryId = :catId")
+    @Query("SELECT * FROM stores WHERE CategoryIds LIKE '%' || :catId || '%'")
     fun getStoresByCategorySync(catId: String): List<StoreModel>
 
     // Inserare/update
@@ -32,7 +36,7 @@ interface StoreDao {
     @Query("DELETE FROM stores")
     suspend fun deleteAll()
 
-    // ✅ BONUS: Verifică dacă există date în cache
+    // Verifică dacă există date în cache
     @Query("SELECT COUNT(*) FROM stores")
     fun getStoreCount(): Int
 }

@@ -398,7 +398,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         bundle.putString(FirebaseAnalytics.Param.ITEM_ID, store.getUniqueId())
         bundle.putString(FirebaseAnalytics.Param.ITEM_NAME, store.Title)
         bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "store")
-        bundle.putString("store_category", store.CategoryId)
+        val categoriesText = store.CategoryIds.joinToString(separator = ", ")
+        bundle.putString("store_category", categoriesText)
         analytics.logEvent(FirebaseAnalytics.Event.SELECT_CONTENT, bundle)
     }
 

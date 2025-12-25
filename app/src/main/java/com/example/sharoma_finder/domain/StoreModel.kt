@@ -11,11 +11,13 @@ import java.io.Serializable
 data class StoreModel(
     @PrimaryKey
     var firebaseKey: String = "",
-
     var Id: Int = 0,
 
-    // ✅ Păstrăm String, dar vom converti numeric → String în Repository
-    var CategoryId: String = "",
+    // ✅ Schimbat din String în List<String>
+    var CategoryIds: List<String> = emptyList(),
+
+    // ✅ Adăugat pentru subcategorii multiple
+    var SubCategoryIds: List<String> = emptyList(),
 
     var Title: String = "",
     var Latitude: Double = 0.0,
@@ -27,26 +29,19 @@ data class StoreModel(
     var Hours: String = "",
     var ImagePath: String = "",
     var IsPopular: Boolean = false,
-
     var Tags: List<String> = emptyList()
 ) : Serializable {
 
     @Ignore
     var distanceToUser: Float = -1f
 
-    fun getUniqueId(): String {
-        return if (firebaseKey.isNotEmpty()) {
-            firebaseKey
-        } else {
-            "${CategoryId}_${Id}"
-        }
-    }
+    fun getUniqueId(): String = if (firebaseKey.isNotEmpty()) firebaseKey else "${CategoryIds.firstOrNull()}_${Id}"
 
     fun isValid(): Boolean {
         return Title.isNotBlank() &&
                 Latitude != 0.0 &&
                 Longitude != 0.0 &&
-                CategoryId.isNotBlank() &&
+                CategoryIds.isNotEmpty() && // ✅ Verificăm dacă are măcar o categorie
                 Address.isNotBlank()
     }
 

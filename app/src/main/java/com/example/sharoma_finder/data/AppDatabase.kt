@@ -8,11 +8,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.example.sharoma_finder.domain.BannerModel
-import com.example.sharoma_finder.domain.CacheMetadata // ✅ ADĂUGAT
-import com.example.sharoma_finder.domain.CategoryModel
-import com.example.sharoma_finder.domain.StoreModel
-import com.example.sharoma_finder.domain.SubCategoryModel
+import com.example.sharoma_finder.domain.*
 
 @Database(
     entities = [
@@ -20,9 +16,9 @@ import com.example.sharoma_finder.domain.SubCategoryModel
         CategoryModel::class,
         BannerModel::class,
         SubCategoryModel::class,
-        CacheMetadata::class // ✅ ADĂUGAT: Tabel nou pentru cache
+        CacheMetadata::class
     ],
-    version = 4, // ✅ ACTUALIZAT: Versiunea a crescut de la 3 la 4
+    version = 5, // ✅ Păstrăm versiunea 5
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -31,105 +27,40 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
     abstract fun bannerDao(): BannerDao
     abstract fun subCategoryDao(): SubCategoryDao
-    abstract fun cacheMetadataDao(): CacheMetadataDao // ✅ ADĂUGAT: DAO nou
+    abstract fun cacheMetadataDao(): CacheMetadataDao
 
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        /**
-         * ✅ MIGRARE 1 → 2
-         *
-         * CE S-A SCHIMBAT: S-au adăugat tabelele "banners" și "categories"
-         */
+        // ✅ MIGRĂRILE TALE ORIGINALE (Păstrează-le exact așa)
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                Log.d("AppDatabase", "🔄 Running migration 1→2")
-
-                try {
-                    // Creare tabel pentru bannere
-                    database.execSQL("""
-                        CREATE TABLE IF NOT EXISTS banners (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                            image TEXT NOT NULL
-                        )
-                    """.trimIndent())
-
-                    // Creare tabel pentru categorii
-                    database.execSQL("""
-                        CREATE TABLE IF NOT EXISTS categories (
-                            Id INTEGER PRIMARY KEY NOT NULL,
-                            ImagePath TEXT NOT NULL,
-                            Name TEXT NOT NULL
-                        )
-                    """.trimIndent())
-
-                    Log.d("AppDatabase", "✅ Migration 1→2 completed successfully")
-
-                } catch (e: Exception) {
-                    Log.e("AppDatabase", "❌ Migration 1→2 failed: ${e.message}")
-                    throw e
-                }
+                database.execSQL("CREATE TABLE IF NOT EXISTS banners (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, image TEXT NOT NULL)")
+                database.execSQL("CREATE TABLE IF NOT EXISTS categories (Id INTEGER PRIMARY KEY NOT NULL, ImagePath TEXT NOT NULL, Name TEXT NOT NULL)")
             }
         }
 
-        /**
-         * ✅ MIGRARE 2 → 3
-         *
-         * CE S-A SCHIMBAT: S-a adăugat tabelul "subcategories"
-         */
         private val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                Log.d("AppDatabase", "🔄 Running migration 2→3")
-
-                try {
-                    // Creare tabel pentru subcategorii
-                    database.execSQL("""
-                        CREATE TABLE IF NOT EXISTS subcategories (
-                            Id INTEGER PRIMARY KEY NOT NULL,
-                            CategoryId TEXT NOT NULL,
-                            ImagePath TEXT NOT NULL,
-                            Name TEXT NOT NULL
-                        )
-                    """.trimIndent())
-
-                    // ✅ OPȚIONAL: Crează index pentru query-uri mai rapide
-                    database.execSQL("""
-                        CREATE INDEX IF NOT EXISTS index_subcategories_CategoryId 
-                        ON subcategories(CategoryId)
-                    """.trimIndent())
-
-                    Log.d("AppDatabase", "✅ Migration 2→3 completed successfully")
-
-                } catch (e: Exception) {
-                    Log.e("AppDatabase", "❌ Migration 2→3 failed: ${e.message}")
-                    throw e
-                }
+                database.execSQL("CREATE TABLE IF NOT EXISTS subcategories (Id INTEGER PRIMARY KEY NOT NULL, CategoryId TEXT NOT NULL, ImagePath TEXT NOT NULL, Name TEXT NOT NULL)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_subcategories_CategoryId ON subcategories(CategoryId)")
             }
         }
 
-        /**
-         * ✅ MIGRARE 3 → 4 (NOU)
-         *
-         * CE S-A SCHIMBAT: Adăugăm tabelul "cache_metadata" pentru expirarea datelor
-         */
         private val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                Log.d("AppDatabase", "🔄 Running migration 3→4")
-                try {
-                    database.execSQL("""
-                        CREATE TABLE IF NOT EXISTS cache_metadata (
-                            `key` TEXT PRIMARY KEY NOT NULL,
-                            timestamp INTEGER NOT NULL,
-                            expiresAt INTEGER NOT NULL,
-                            itemCount INTEGER NOT NULL DEFAULT 0
-                        )
-                    """.trimIndent())
-                    Log.d("AppDatabase", "✅ Migration 3→4 completed")
-                } catch (e: Exception) {
-                    Log.e("AppDatabase", "❌ Migration 3→4 failed: ${e.message}")
-                    throw e
-                }
+                database.execSQL("CREATE TABLE IF NOT EXISTS cache_metadata (`key` TEXT PRIMARY KEY NOT NULL, timestamp INTEGER NOT NULL, expiresAt INTEGER NOT NULL, itemCount INTEGER NOT NULL DEFAULT 0)")
+            }
+        }
+
+        // ✅ NOUA MIGRARE 4 -> 5 (Adăugată pentru a preveni crash-ul la liste)
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS stores_new (firebaseKey TEXT PRIMARY KEY NOT NULL, Id INTEGER NOT NULL, CategoryIds TEXT NOT NULL, SubCategoryIds TEXT NOT NULL, Title TEXT NOT NULL, Latitude REAL NOT NULL, Longitude REAL NOT NULL, Address TEXT NOT NULL, Call TEXT NOT NULL, Activity TEXT NOT NULL, ShortAddress TEXT NOT NULL, Hours TEXT NOT NULL, ImagePath TEXT NOT NULL, IsPopular INTEGER NOT NULL, Tags TEXT NOT NULL)")
+                db.execSQL("INSERT INTO stores_new (firebaseKey, Id, CategoryIds, SubCategoryIds, Title, Latitude, Longitude, Address, Call, Activity, ShortAddress, Hours, ImagePath, IsPopular, Tags) SELECT firebaseKey, Id, '[\"' || CategoryId || '\"]', '[]', Title, Latitude, Longitude, Address, Call, Activity, ShortAddress, Hours, ImagePath, IsPopular, Tags FROM stores")
+                db.execSQL("DROP TABLE stores")
+                db.execSQL("ALTER TABLE stores_new RENAME TO stores")
             }
         }
 
@@ -140,30 +71,21 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "sharoma_database"
                 )
-                    // ✅ CRUCIAL: Adaugă toate migrările, inclusiv cea nouă
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
-
-                    // ✅ ALTERNATIVĂ SIGURĂ pentru production:
-                    .fallbackToDestructiveMigrationOnDowngrade() // Șterge doar la downgrade
-
+                    // ✅ Înregistrăm toate migrările, inclusiv cea nouă
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .fallbackToDestructiveMigration()
                     .build()
-
                 INSTANCE = instance
-                Log.d("AppDatabase", "✅ Database instance created with migrations")
                 instance
             }
         }
 
-        /**
-         * ✅ BONUS: Funcție pentru debugging - verifică versiunea DB
-         */
+        // ✅ Funcția ta de debug pe care o poți păstra
         fun getDatabaseVersion(context: Context): Int {
             return try {
                 val db = getDatabase(context).openHelper.readableDatabase
                 db.version
-            } catch (e: Exception) {
-                -1
-            }
+            } catch (e: Exception) { -1 }
         }
     }
 }

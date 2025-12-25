@@ -46,14 +46,14 @@ fun ResultList(
     var hasError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    // ✅ DEBUGGING: Logăm ce primim
+    // ✅ DEBUGGING: Logăm ce primim (am actualizat și aici logica de numărare pentru acuratețe)
     LaunchedEffect(allGlobalStores.size, id) {
         Log.d("ResultList", """
             📦 ResultList launched:
             - CategoryId: $id
             - Title: $title
             - Total stores available: ${allGlobalStores.size}
-            - Stores in this category: ${allGlobalStores.count { it.CategoryId == id }}
+            - Stores in this category: ${allGlobalStores.count { it.CategoryIds.contains(id) }}
         """.trimIndent())
     }
 
@@ -82,7 +82,8 @@ fun ResultList(
             // ✅ Folosim asSequence() pentru lazy evaluation
             allGlobalStores.asSequence()
                 .filter { store ->
-                    store.CategoryId == id &&
+                    // ✅ MODIFICARE EXECUTATĂ:
+                    store.CategoryIds.contains(id) &&
                             store.IsPopular &&
                             store.isValid() &&
                             (selectedTag.isEmpty() || store.hasTag(selectedTag))
@@ -101,7 +102,8 @@ fun ResultList(
         try {
             val filteredSequence = allGlobalStores.asSequence()
                 .filter { store ->
-                    store.CategoryId == id &&
+                    // ✅ MODIFICARE EXECUTATĂ:
+                    store.CategoryIds.contains(id) &&
                             store.isValid() &&
                             (selectedTag.isEmpty() || store.hasTag(selectedTag))
                 }

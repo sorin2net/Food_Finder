@@ -210,12 +210,12 @@ fun MainApp(
             val listToSend = when (screen.mode) {
                 "popular" -> {
                     dashboardViewModel.getGlobalStoreList()
-                        .filter { it.CategoryId == screen.id && it.IsPopular }
+                        .filter { it.CategoryIds.contains(screen.id) && it.IsPopular }
                         .sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
                 }
                 "nearest", "nearest_all" -> {
                     dashboardViewModel.getGlobalStoreList()
-                        .filter { it.CategoryId == screen.id }
+                        .filter { it.CategoryIds.contains(screen.id) }
                         .sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
                 }
                 else -> emptyList()
