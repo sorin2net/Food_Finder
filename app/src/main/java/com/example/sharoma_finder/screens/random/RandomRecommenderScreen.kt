@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -24,6 +25,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.imageLoader
+import coil.request.ImageRequest
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.StoreModel
 import kotlinx.coroutines.delay
@@ -43,6 +46,7 @@ fun RandomRecommenderScreen(
     var finalStore by remember { mutableStateOf<StoreModel?>(null) }
 
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     val infiniteTransition = rememberInfiniteTransition(label = "spin_rotation")
     val spinButtonRotation by infiniteTransition.animateFloat(
@@ -63,6 +67,7 @@ fun RandomRecommenderScreen(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // === HEADER ===
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -97,10 +102,11 @@ fun RandomRecommenderScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            // === CARD DISPLAY ===
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(420.dp) // Am mărit puțin înălțimea pentru a face loc distanței
+                    .height(420.dp)
                     .padding(horizontal = 32.dp),
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
@@ -132,20 +138,11 @@ fun RandomRecommenderScreen(
                                 )
                             }
                         }
-
-                        isSpinning && currentDisplayStore != null -> {
+                        else -> {
                             StoreDisplayCard(
-                                store = currentDisplayStore!!,
-                                isSpinning = true,
-                                onClick = { }
-                            )
-                        }
-
-                        !isSpinning && finalStore != null -> {
-                            StoreDisplayCard(
-                                store = finalStore!!,
-                                isSpinning = false,
-                                onClick = { onStoreClick(finalStore!!) }
+                                store = if (isSpinning) currentDisplayStore!! else finalStore!!,
+                                isSpinning = isSpinning,
+                                onClick = { if (!isSpinning) onStoreClick(finalStore!!) }
                             )
                         }
                     }
@@ -154,6 +151,7 @@ fun RandomRecommenderScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
 
+            // === SPIN BUTTON ===
             Button(
                 onClick = {
                     viewModel.addPoints(10)
@@ -162,18 +160,36 @@ fun RandomRecommenderScreen(
                         finalStore = null
 
                         scope.launch {
-                            val spinDuration = 2000L
-                            val intervalMs = 80L
-                            val iterations = (spinDuration / intervalMs).toInt()
+                            // Am setat o durată mai lungă și un interval de bază mai lent
+                            val iterations = 12
+                            val baseDelay = 200L
 
                             repeat(iterations) { iteration ->
-                                currentDisplayStore = allStores.random()
+                                val nextStore = allStores.random()
+
+                                // ✅ FORȚĂM ÎNCĂRCAREA IMAGINII ÎN CACHE ÎNAINTE DE AFIȘARE
+                                val request = ImageRequest.Builder(context)
+                                    .data(nextStore.ImagePath)
+                                    .build()
+                                context.imageLoader.execute(request)
+
+                                currentDisplayStore = nextStore
+
+                                // Delay progresiv pentru efectul de încetinire pe final
                                 val progressFactor = iteration.toFloat() / iterations
-                                val currentDelay = (intervalMs * (1 + progressFactor * 2)).toLong()
+                                val currentDelay = (baseDelay * (1 + progressFactor * 2)).toLong()
                                 delay(currentDelay)
                             }
 
+                            // Alegem câștigătorul final
                             val winner = allStores[Random.nextInt(allStores.size)]
+
+                            // Ne asigurăm că și imaginea câștigătorului este gata
+                            val finalRequest = ImageRequest.Builder(context)
+                                .data(winner.ImagePath)
+                                .build()
+                            context.imageLoader.execute(finalRequest)
+
                             currentDisplayStore = winner
                             finalStore = winner
                             isSpinning = false
@@ -215,7 +231,7 @@ fun RandomRecommenderScreen(
             Text(
                 text = when {
                     allStores.isEmpty() -> "No stores available"
-                    isSpinning -> "Spinning..."
+                    isSpinning -> "Searching..."
                     finalStore != null -> "Tap the card to view on map"
                     else -> "Ready to spin!"
                 },
@@ -265,7 +281,6 @@ private fun StoreDisplayCard(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // ✅ DISTANȚA (Afișată exact ca în Wishlist)
         if (store.distanceToUser >= 0) {
             val distanceKm = store.distanceToUser / 1000
             Text(
@@ -290,7 +305,7 @@ private fun StoreDisplayCard(
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = store.ShortAddress,
+                text = store.Address,
                 fontSize = 14.sp,
                 color = Color.Gray,
                 textAlign = TextAlign.Center
