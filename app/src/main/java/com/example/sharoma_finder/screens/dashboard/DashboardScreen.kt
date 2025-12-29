@@ -26,6 +26,7 @@ import com.example.sharoma_finder.viewModel.DashboardViewModel
 fun DashboardScreen(
     onCategoryClick: (id: String, title: String) -> Unit,
     onStoreClick: (StoreModel) -> Unit,
+    onBannerClick: () -> Unit,
     viewModel: DashboardViewModel
 ) {
     // ✅ PASUL 1: Șters linia veche "var selectedTab by rememberSaveable..."
@@ -84,7 +85,7 @@ fun DashboardScreen(
                             )
                         }
                         item { CategorySection(categories, showCategoryLoading, onCategoryClick) }
-                        item { Banner(banners, showBannerLoading) }
+                        item { Banner(banners, showBannerLoading,onBannerClick = onBannerClick) }
                     }
                 }
                 "Support" -> SupportScreen()

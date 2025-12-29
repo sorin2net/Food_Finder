@@ -1,6 +1,7 @@
 package com.example.sharoma_finder.screens.dashboard
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -24,7 +25,8 @@ import com.example.sharoma_finder.domain.BannerModel
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun Sliding(
-    banners: List<BannerModel>
+    banners: List<BannerModel>,
+    onBannerClick: () -> Unit = {} // ✅ ADĂUGAT: Parametru callback
 ) {
 
     val pagerState = rememberPagerState(pageCount = { banners.size })
@@ -46,12 +48,17 @@ fun Sliding(
                 .padding(16.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .height(150.dp)
+                .clickable { onBannerClick() } // ✅ ADĂUGAT: Click handler
         )
     }
 }
 
 @Composable
-fun Banner(banners: SnapshotStateList<BannerModel>, showBannerLoading: Boolean) {
+fun Banner(
+    banners: SnapshotStateList<BannerModel>,
+    showBannerLoading: Boolean,
+    onBannerClick: () -> Unit = {} // ✅ Callback pentru click pe banner
+) {
     if (showBannerLoading) {
         Box(
             modifier = Modifier
@@ -62,6 +69,9 @@ fun Banner(banners: SnapshotStateList<BannerModel>, showBannerLoading: Boolean) 
             CircularProgressIndicator()
         }
     } else {
-        Sliding(banners = banners)
+        Sliding(
+            banners = banners,
+            onBannerClick = onBannerClick // ✅ Transmitem callback-ul
+        )
     }
 }

@@ -30,6 +30,7 @@ import com.example.sharoma_finder.repository.InternetConsentManager
 import com.example.sharoma_finder.screens.common.InternetConsentDialog
 import com.example.sharoma_finder.screens.dashboard.DashboardScreen
 import com.example.sharoma_finder.screens.map.MapScreen
+import com.example.sharoma_finder.screens.random.RandomRecommenderScreen
 import com.example.sharoma_finder.screens.results.AllStoresScreen
 import com.example.sharoma_finder.screens.results.ResultList
 import com.example.sharoma_finder.viewModel.DashboardViewModel
@@ -99,7 +100,10 @@ sealed class Screen {
     data class Results(val id: String, val title: String) : Screen()
     data class Map(val store: StoreModel) : Screen()
     data class ViewAll(val id: String, val mode: String) : Screen()
+    data object RandomRecommender : Screen()
 }
+
+// Actualizare în MainActivity.kt - Partea de navigation
 
 @Composable
 fun MainApp(
@@ -162,20 +166,35 @@ fun MainApp(
                     backStack.add(Screen.Results(id, title))
                 },
                 onStoreClick = { store ->
-                    // ✅ Adăugat: Acordare puncte la deschiderea hărții din Dashboard
                     dashboardViewModel.onStoreOpenedOnMap()
                     backStack.add(Screen.Map(store))
+                },
+                onBannerClick = {
+                    // ✅ NOU: Navigăm către Random Recommender
+                    backStack.add(Screen.RandomRecommender)
                 },
                 viewModel = dashboardViewModel
             )
         }
+
+        // ✅ NOU: Random Recommender Screen
+        Screen.RandomRecommender -> {
+            RandomRecommenderScreen(
+                allStores = dashboardViewModel.getGlobalStoreList(),
+                onBackClick = { popBackStack() },
+                onStoreClick = { store ->
+                    dashboardViewModel.onStoreOpenedOnMap()
+                    backStack.add(Screen.Map(store))
+                }
+            )
+        }
+
         is Screen.Results -> {
             ResultList(
                 id = screen.id,
                 title = screen.title,
                 onBackClick = { popBackStack() },
                 onStoreClick = { store ->
-                    // ✅ Adăugat: Acordare puncte la deschiderea hărții din lista de categorii
                     dashboardViewModel.onStoreOpenedOnMap()
                     backStack.add(Screen.Map(store))
                 },
@@ -208,7 +227,6 @@ fun MainApp(
                 mode = screen.mode,
                 onBackClick = { popBackStack() },
                 onStoreClick = { store ->
-                    // ✅ Adăugat: Acordare puncte la deschiderea hărții din ecranul View All
                     dashboardViewModel.onStoreOpenedOnMap()
                     backStack.add(Screen.Map(store))
                 },
