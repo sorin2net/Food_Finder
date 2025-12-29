@@ -41,7 +41,7 @@ fun TopTile(title: String="title",onBackClick:()->Unit={}){
                     .clickable{onBackClick()}
                 )
             Text(
-                text=title+" Stores Result",
+                text=title,
                 fontSize=20.sp,
                 color= colorResource(R.color.gold),
                 modifier = Modifier

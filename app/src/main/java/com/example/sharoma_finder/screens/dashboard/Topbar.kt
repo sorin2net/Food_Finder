@@ -243,7 +243,7 @@ fun TopBar(
 
             // --- WISHLIST TITLE ---
             Text(
-                text = "My Wishlist",
+                text = "Preferate",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 style = TextStyle(textDecoration = TextDecoration.Underline),

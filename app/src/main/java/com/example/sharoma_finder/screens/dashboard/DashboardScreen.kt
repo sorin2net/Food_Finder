@@ -74,7 +74,7 @@ fun DashboardScreen(
         ) {
             // ✅ PASUL 4: Decidem ce ecran afișăm în funcție de starea din ViewModel
             when (viewModel.selectedTab.value) {
-                "Home" -> {
+                "Acasă" -> {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         item {
                             TopBar(
@@ -88,8 +88,8 @@ fun DashboardScreen(
                         item { Banner(banners, showBannerLoading,onBannerClick = onBannerClick) }
                     }
                 }
-                "Support" -> SupportScreen()
-                "Wishlist" -> {
+                "Suport" -> SupportScreen()
+                "Preferințe" -> {
                     WishlistScreen(
                         favoriteStores = viewModel.favoriteStores,
                         isDataLoaded = viewModel.isDataLoaded.value,
@@ -98,7 +98,7 @@ fun DashboardScreen(
                         isStoreFavorite = { store -> viewModel.isFavorite(store) }
                     )
                 }
-                "Profile" -> {
+                "Profil" -> {
                     ProfileScreen(viewModel = viewModel)
                 }
             }

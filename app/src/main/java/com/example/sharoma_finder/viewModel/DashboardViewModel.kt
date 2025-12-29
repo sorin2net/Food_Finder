@@ -59,7 +59,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private lateinit var localStoreObserver: Observer<List<StoreModel>>
 
     // ✅ PASUL 1: Adăugăm starea pentru tab în ViewModel pentru a supraviețui navigării
-    var selectedTab = mutableStateOf("Home")
+    var selectedTab = mutableStateOf("Acasă")
 
     fun updateTab(newTab: String) {
         selectedTab.value = newTab

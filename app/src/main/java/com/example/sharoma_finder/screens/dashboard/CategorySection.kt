@@ -68,7 +68,7 @@ fun CategorySection(
     onCategoryClick:(id:String,title:String)->Unit
 ){
     Text(
-        text="Explorer Stores",
+        text="Alege dintre...",
         fontSize=20.sp,
         color = colorResource(R.color.gold),
         fontWeight = FontWeight.SemiBold,

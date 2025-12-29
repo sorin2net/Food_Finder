@@ -30,16 +30,16 @@ fun prepareBottomMenu(): List<BottomMenuItem> {
     val bottomMenuItemList = arrayListOf<BottomMenuItem>()
 
     bottomMenuItemList.add(
-        BottomMenuItem(label = "Home", icon = painterResource(R.drawable.btn_1))
+        BottomMenuItem(label = "Acasă", icon = painterResource(R.drawable.btn_1))
     )
     bottomMenuItemList.add(
-        BottomMenuItem(label = "Support", icon = painterResource(R.drawable.btn_2))
+        BottomMenuItem(label = "Suport", icon = painterResource(R.drawable.btn_2))
     )
     bottomMenuItemList.add(
-        BottomMenuItem(label = "Wishlist", icon = painterResource(R.drawable.btn_3))
+        BottomMenuItem(label = "Preferințe", icon = painterResource(R.drawable.btn_3))
     )
     bottomMenuItemList.add(
-        BottomMenuItem(label = "Profile", icon = painterResource(R.drawable.btn_4))
+        BottomMenuItem(label = "Profil", icon = painterResource(R.drawable.btn_4))
     )
 
     return bottomMenuItemList
