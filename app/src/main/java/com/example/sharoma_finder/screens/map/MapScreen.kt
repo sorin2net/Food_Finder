@@ -8,24 +8,14 @@ import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MyLocation // ✅ Import nou pentru iconița de locație
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,20 +40,19 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.google.android.gms.maps.CameraUpdateFactory // ✅ Import nou pentru animația camerei
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.compose.*
+import kotlinx.coroutines.launch // ✅ Import nou pentru corutine
 
 @Composable
 fun MapScreen(
     store: StoreModel,
     isFavorite: Boolean = false,
     onFavoriteClick: () -> Unit = {},
-    onBackClick: () -> Unit // ✅ Pasul 1: Adăugat parametrul pentru navigare
+    onBackClick: () -> Unit
 ) {
     // ✅ Validare coordonate magazin
     if (store.Latitude == 0.0 || store.Longitude == 0.0) {
@@ -86,6 +75,7 @@ fun MapScreen(
 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope() // ✅ PASUL 1: Creăm scope pentru animație
 
     val storeLatlng = LatLng(store.Latitude, store.Longitude)
 
@@ -182,8 +172,8 @@ fun MapScreen(
     ConstraintLayout(
         modifier = Modifier.fillMaxSize()
     ) {
-        // ✅ Pasul 2: Adăugată referința 'backBtn' în ConstraintLayout
-        val (map, detail, backBtn) = createRefs()
+        // ✅ PASUL 2: Adăugată referința 'centerBtn' în ConstraintLayout
+        val (map, detail, backBtn, centerBtn) = createRefs()
 
         GoogleMap(
             modifier = Modifier
@@ -215,10 +205,10 @@ fun MapScreen(
             }
         }
 
-        // ✅ Pasul 3: Adăugat elementul vizual pentru Back
+        // Buton Back existent
         Box(
             modifier = Modifier
-                .padding(top = 48.dp, start = 16.dp) // Padding pentru a nu fi sub status bar
+                .padding(top = 48.dp, start = 16.dp)
                 .size(45.dp)
                 .background(
                     color = colorResource(R.color.black3).copy(alpha = 0.8f),
@@ -238,14 +228,48 @@ fun MapScreen(
             )
         }
 
+        // ✅ PASUL 3: Adăugăm butonul vizual „Center on me”
+        // Apare doar dacă avem permisiune și locație cunoscută
+        if (hasLocationPermission && userLocation != null) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 48.dp, end = 16.dp)
+                    .size(45.dp)
+                    .background(colorResource(R.color.black3).copy(alpha = 0.8f), CircleShape)
+                    .clickable {
+                        userLocation?.let { latLng ->
+                            scope.launch {
+                                // Animație fluidă de 1 secundă către locația user-ului
+                                cameraPositionState.animate(
+                                    update = CameraUpdateFactory.newLatLngZoom(latLng, 15f),
+                                    durationMs = 1000
+                                )
+                            }
+                        }
+                    }
+                    .constrainAs(centerBtn) {
+                        top.linkTo(parent.top)
+                        end.linkTo(parent.end)
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MyLocation,
+                    contentDescription = "Center on me",
+                    tint = colorResource(R.color.gold),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
         // Card cu detalii magazin (nivele de la baza ecranului)
         LazyColumn(
             modifier = Modifier
                 .wrapContentHeight()
-                .padding(horizontal = 24.dp, vertical = 32.dp)
+                .padding(start = 8.dp, end = 48.dp, bottom = 32.dp)
                 .fillMaxWidth()
                 .background(colorResource(R.color.black3), shape = RoundedCornerShape(10.dp))
-                .padding(16.dp)
+                .padding(6.dp)
                 .constrainAs(detail) {
                     centerHorizontallyTo(parent)
                     bottom.linkTo(parent.bottom)
@@ -276,7 +300,7 @@ fun MapScreen(
                 ) {
                     Text(
                         "Call to Store",
-                        fontSize = 18.sp,
+                        fontSize = 16.sp,
                         color = Color.Black,
                         fontWeight = FontWeight.Bold
                     )

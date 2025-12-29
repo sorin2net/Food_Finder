@@ -11,7 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect // ✅ Import nou
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -22,9 +22,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.lifecycle.Lifecycle // ✅ Import nou
-import androidx.lifecycle.LifecycleEventObserver // ✅ Import nou
-import androidx.lifecycle.compose.LocalLifecycleOwner // ✅ Import nou
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.repository.InternetConsentManager
 import com.example.sharoma_finder.screens.common.InternetConsentDialog
@@ -38,18 +38,14 @@ import com.google.accompanist.systemuicontroller.rememberSystemUiController
 class MainActivity : ComponentActivity() {
 
     private val dashboardViewModel: DashboardViewModel by viewModels()
-
-    // ✅ ADĂUGAT: Manager pentru consimțământ internet
     private lateinit var internetConsentManager: InternetConsentManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // ✅ Inițializare manager
         internetConsentManager = InternetConsentManager(applicationContext)
 
-        // ===== LOCATION PERMISSION (rămâne la fel) =====
         val locationPermissionRequest = registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { permissions ->
@@ -59,10 +55,10 @@ class MainActivity : ComponentActivity() {
             if (fineLocation || coarseLocation) {
                 Log.d("MainActivity", "✅ Location permission granted")
                 dashboardViewModel.fetchUserLocation()
-                dashboardViewModel.checkLocationPermission() // Actualizăm și starea explicit
+                dashboardViewModel.checkLocationPermission()
             } else {
                 Log.w("MainActivity", "⚠️ Location permission denied")
-                dashboardViewModel.checkLocationPermission() // Actualizăm starea ca fiind false
+                dashboardViewModel.checkLocationPermission()
             }
         }
 
@@ -70,7 +66,6 @@ class MainActivity : ComponentActivity() {
         val hasCoarseLocation = ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
         if (hasFineLocation || hasCoarseLocation) {
-            Log.d("MainActivity", "✅ Permissions already granted")
             dashboardViewModel.fetchUserLocation()
         } else {
             locationPermissionRequest.launch(arrayOf(
@@ -80,20 +75,15 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            // ✅ ADĂUGAT: Lifecycle observer pentru a verifica permisiunea la onResume
-            // Asta ajută dacă userul iese din app, activează locația în Setări și revine.
             val lifecycleOwner = LocalLifecycleOwner.current
             DisposableEffect(lifecycleOwner) {
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_RESUME) {
-                        Log.d("MainActivity", "🔄 App Resumed - Checking location permission")
                         dashboardViewModel.checkLocationPermission()
                     }
                 }
                 lifecycleOwner.lifecycle.addObserver(observer)
-                onDispose {
-                    lifecycleOwner.lifecycle.removeObserver(observer)
-                }
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
             }
 
             MainApp(
@@ -130,38 +120,24 @@ fun MainApp(
     val backStack = remember { mutableStateListOf<Screen>(Screen.Dashboard) }
     val currentScreen = backStack.last()
 
-    // ✅ ADĂUGAT: State pentru dialog internet consent
     var showInternetConsentDialog by remember { mutableStateOf(false) }
 
-    // ✅ LOGICĂ: Verificăm la pornire dacă trebuie să cerem consimțământul
     LaunchedEffect(Unit) {
-        Log.d("MainActivity", "🌐 Checking internet consent...")
-
-        // Dacă nu am întrebat încă și nu are consimțământ
         if (!internetConsentManager.hasAskedForConsent() && !internetConsentManager.hasInternetConsent()) {
-            Log.d("MainActivity", "❓ Showing internet consent dialog")
             showInternetConsentDialog = true
         } else if (internetConsentManager.hasInternetConsent()) {
-            Log.d("MainActivity", "✅ Internet consent already granted")
-            // Dacă are consimțământ, pornim sincronizarea
             dashboardViewModel.enableInternetFeatures()
-        } else {
-            Log.d("MainActivity", "❌ Internet consent declined previously")
-            // Utilizatorul a refuzat înainte - nu mai întrebăm
         }
     }
 
-    // ✅ DIALOG DE CONSIMȚĂMÂNT
     if (showInternetConsentDialog) {
         InternetConsentDialog(
             onAccept = {
-                Log.d("MainActivity", "✅ User ACCEPTED internet consent")
                 internetConsentManager.grantConsent()
                 dashboardViewModel.enableInternetFeatures()
                 showInternetConsentDialog = false
             },
             onDecline = {
-                Log.d("MainActivity", "❌ User DECLINED internet consent")
                 internetConsentManager.markConsentAsked()
                 dashboardViewModel.disableInternetFeatures()
                 showInternetConsentDialog = false
@@ -186,6 +162,8 @@ fun MainApp(
                     backStack.add(Screen.Results(id, title))
                 },
                 onStoreClick = { store ->
+                    // ✅ Adăugat: Acordare puncte la deschiderea hărții din Dashboard
+                    dashboardViewModel.onStoreOpenedOnMap()
                     backStack.add(Screen.Map(store))
                 },
                 viewModel = dashboardViewModel
@@ -196,7 +174,11 @@ fun MainApp(
                 id = screen.id,
                 title = screen.title,
                 onBackClick = { popBackStack() },
-                onStoreClick = { store -> backStack.add(Screen.Map(store)) },
+                onStoreClick = { store ->
+                    // ✅ Adăugat: Acordare puncte la deschiderea hărții din lista de categorii
+                    dashboardViewModel.onStoreOpenedOnMap()
+                    backStack.add(Screen.Map(store))
+                },
                 onSeeAllClick = { mode ->
                     backStack.add(Screen.ViewAll(screen.id, mode))
                 },
@@ -221,13 +203,15 @@ fun MainApp(
                 else -> emptyList()
             }
 
-            Log.d("MainActivity", "📦 Sending ${listToSend.size} stores for mode: ${screen.mode}")
-
             AllStoresScreen(
                 categoryId = screen.id,
                 mode = screen.mode,
                 onBackClick = { popBackStack() },
-                onStoreClick = { store -> backStack.add(Screen.Map(store)) },
+                onStoreClick = { store ->
+                    // ✅ Adăugat: Acordare puncte la deschiderea hărții din ecranul View All
+                    dashboardViewModel.onStoreOpenedOnMap()
+                    backStack.add(Screen.Map(store))
+                },
                 isStoreFavorite = { store -> dashboardViewModel.isFavorite(store) },
                 onFavoriteToggle = { store -> dashboardViewModel.toggleFavorite(store) },
                 preLoadedList = listToSend,
@@ -240,7 +224,7 @@ fun MainApp(
                 store = screen.store,
                 isFavorite = dashboardViewModel.isFavorite(screen.store),
                 onFavoriteClick = { dashboardViewModel.toggleFavorite(screen.store) },
-                onBackClick = { popBackStack() } // ✅ Transmitem funcția care șterge ultimul ecran din listă
+                onBackClick = { popBackStack() }
             )
         }
     }

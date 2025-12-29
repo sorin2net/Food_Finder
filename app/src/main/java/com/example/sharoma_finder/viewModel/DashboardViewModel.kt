@@ -87,6 +87,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     var currentUserLocation: Location? = null
         private set
 
+    var userPoints = mutableStateOf(0)
+
     init {
         Log.d("DashboardViewModel", "=== INIT START ===")
         loadUserData()
@@ -107,6 +109,34 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         } else {
             Log.w("DashboardViewModel", "⚠️ No internet access/consent - skipping network sync")
         }
+        userPoints.value = userManager.getPoints()
+        startUsageTimer() // Pornim cronometrul de timp în aplicație
+    }
+
+    fun addPoints(amount: Int) {
+        userPoints.value += amount
+        userManager.savePoints(userPoints.value)
+    }
+
+    // Funcție pentru a scădea puncte
+    fun removePoints(amount: Int) {
+        userPoints.value = (userPoints.value - amount).coerceAtLeast(0)
+        userManager.savePoints(userPoints.value)
+    }
+
+    // Cronometru: 1 punct la fiecare 60 secunde
+    private fun startUsageTimer() {
+        viewModelScope.launch {
+            while (true) {
+                delay(60_000) // 1 minut
+                addPoints(1)
+                Log.d("Points", "+1 point for usage")
+            }
+        }
+    }
+    // Apelată când se deschide harta
+    fun onStoreOpenedOnMap() {
+        addPoints(25)
     }
 
     private fun checkInternetConsent() {
@@ -421,6 +451,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun updateUserName(newName: String) {
         userName.value = newName
         userManager.saveName(newName)
+        addPoints(5) // +5 puncte pentru schimbare nume
     }
 
     fun updateUserImage(uri: Uri) {
@@ -430,6 +461,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 if (internalPath != null) {
                     userImagePath.value = internalPath
                     userManager.saveImagePath(internalPath)
+                    addPoints(10) // +10 puncte pentru poza noua
                 }
             }
         }
@@ -458,9 +490,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         if (favoriteStoreIds.contains(uniqueKey)) {
             favoritesManager.removeFavorite(uniqueKey)
             favoriteStoreIds.remove(uniqueKey)
+            removePoints(5) // -5 puncte la scoatere
         } else {
             favoritesManager.addFavorite(uniqueKey)
             favoriteStoreIds.add(uniqueKey)
+            addPoints(10) // +10 puncte la adăugare
         }
         updateFavoriteStores()
     }

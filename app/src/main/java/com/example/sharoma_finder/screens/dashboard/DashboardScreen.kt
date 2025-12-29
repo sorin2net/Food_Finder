@@ -79,7 +79,8 @@ fun DashboardScreen(
                             TopBar(
                                 userName = viewModel.userName.value,
                                 userImagePath = viewModel.userImagePath.value,
-                                wishlistCount = viewModel.favoriteStores.size
+                                wishlistCount = viewModel.favoriteStores.size,
+                                points = viewModel.userPoints.value
                             )
                         }
                         item { CategorySection(categories, showCategoryLoading, onCategoryClick) }

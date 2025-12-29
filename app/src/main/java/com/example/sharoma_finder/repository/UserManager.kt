@@ -20,6 +20,16 @@ class UserManager(private val context: Context) {
         return sharedPreferences.getString("user_name", "Utilizatorule") ?: "Utilizatorule"
     }
 
+    // com.example.sharoma_finder.repository.UserManager.kt
+
+    fun savePoints(points: Int) {
+        sharedPreferences.edit { putInt("user_points", points) }
+    }
+
+    fun getPoints(): Int {
+        return sharedPreferences.getInt("user_points", 0)
+    }
+
     // Salvează calea pozei (String)
     fun saveImagePath(path: String) {
         sharedPreferences.edit { putString("user_image_path", path) }

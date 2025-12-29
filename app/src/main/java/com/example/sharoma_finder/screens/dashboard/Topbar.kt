@@ -24,7 +24,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
@@ -32,36 +31,35 @@ import androidx.constraintlayout.compose.Dimension
 import coil.compose.AsyncImage
 import com.example.sharoma_finder.R
 import java.io.File
-import java.util.Calendar // ✅ Import necesar pentru oră
+import java.util.Calendar
 
 @Composable
 fun TopBar(
     userName: String,
     userImagePath: String?,
-    wishlistCount: Int
+    wishlistCount: Int,
+    points: Int // ✅ Parametru nou adăugat
 ) {
     // 1. LOGICA PENTRU TITLUL DE REWARD (bazat pe wishlist)
-    // 1. LOGICA PENTRU TITLUL DE REWARD (bazat pe wishlist)
-    val userRankTitle = when (wishlistCount) {
-        0 -> "La Dietă"          // 0 iteme (Ironic: nu a ales nimic încă)
-        in 1..2 -> "Ciugulitor"  // 1-2 iteme (Doar gustă puțin)
-        in 3..4 -> "Pofticios"   // 3-4 iteme (Începe să îi fie foame)
-        in 5..6 -> "Mâncăcios"   // 5-6 iteme (Îi place mâncarea)
-        in 7..8 -> "Gurmand"     // 7-8 iteme (Apreciază gustul bun)
-        in 9..10 -> "Devorator"  // 9-10 iteme (Nu iartă nimic)
-        else -> "Sultan"         // 11+ (Nivel suprem, ospăț regal)
+    val userRankTitle = when {
+        points < 25 -> "La Dietă"
+        points in 25..49 -> "Ciugulitor"
+        points in 50..99 -> "Pofticios"
+        points in 100..199 -> "Mâncăcios"
+        points in 200..299 -> "Gurmand"
+        points in 300..499 -> "Devorator"
+        else -> "Sultan" // 500+ XP
     }
 
     // 2. LOGICA PENTRU SALUT (bazat pe oră)
-    // Folosim 'remember' pentru a nu recalcul ora la fiecare mică redesenare, deși nu e critic aici.
     val greetingText = remember {
         val calendar = Calendar.getInstance()
-        val hour = calendar.get(Calendar.HOUR_OF_DAY) // Ora în format 0-23
+        val hour = calendar.get(Calendar.HOUR_OF_DAY)
 
         when (hour) {
-            in 6..10 -> "Neata"      // 06:00 - 10:59
-            in 11..17 -> "Buna ziua" // 11:00 - 17:59 (5 PM)
-            else -> "Buna seara"     // 18:00 - 05:59
+            in 6..10 -> "Neata"
+            in 11..17 -> "Buna ziua"
+            else -> "Buna seara"
         }
     }
 
@@ -104,7 +102,7 @@ fun TopBar(
 
         // --- SALUTUL DINAMIC ---
         Text(
-            text = "$greetingText, $userName", // ✅ Aici am pus variabila calculată
+            text = "$greetingText, $userName",
             fontSize = 20.sp,
             color = colorResource(R.color.gold),
             modifier = Modifier
@@ -150,18 +148,50 @@ fun TopBar(
                 }
                 .clip(RoundedCornerShape(10.dp))
         ) {
-            val (icon1, icon2, wishTitle, wishCount, reward, wallet, line1, line2) = createRefs()
+            // ✅ Am adăugat 'pointsValue' în refs
+            val (icon1, icon2, wishTitle, wishCount, reward, wallet, pointsValue, line1, line2) = createRefs()
 
             Image(
                 painter = painterResource(R.drawable.wallet),
                 contentDescription = null,
                 modifier = Modifier
                     .padding(start = 16.dp, top = 16.dp)
+                    .size(20.dp) // Dimensiune setată pentru aliniere
                     .constrainAs(icon1) {
                         top.linkTo(parent.top)
                         start.linkTo(parent.start)
                     }
             )
+
+            // ✅ Textul "Portofel" a devenit "Puncte Foodie"
+            Text(
+                text = "Puncte Foodie",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .constrainAs(wallet) {
+                        top.linkTo(icon1.top)
+                        bottom.linkTo(icon1.bottom)
+                        start.linkTo(icon1.end)
+                    }
+            )
+
+            // ✅ AFIȘARE PUNCTE XP SUB TITLU
+            Text(
+                text = "$points XP",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = colorResource(R.color.gold),
+                modifier = Modifier
+                    .padding(start = 8.dp, top = 2.dp)
+                    .constrainAs(pointsValue) {
+                        top.linkTo(wallet.bottom)
+                        start.linkTo(wallet.start)
+                    }
+            )
+
             Image(
                 painter = painterResource(R.drawable.medal),
                 contentDescription = null,
@@ -173,31 +203,18 @@ fun TopBar(
                     }
             )
 
-            Text(
-                text = "Portofel",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-                style = TextStyle(textDecoration = TextDecoration.Underline),
-                modifier = Modifier
-                    .padding(start = 8.dp)
-                    .constrainAs(wallet) {
-                        bottom.linkTo(icon1.bottom)
-                        start.linkTo(icon1.end)
-                    }
-            )
-
             // --- REWARD DINAMIC ---
             Text(
-                text = userRankTitle, // ✅ "Appetizer", "Gourmand", etc.
+                text = userRankTitle,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = colorResource(R.color.gold),
                 style = TextStyle(textDecoration = TextDecoration.Underline),
                 modifier = Modifier
-                    .padding(start = 8.dp)
+                    .padding(start = 8.dp,bottom=16.dp)
                     .constrainAs(reward) {
                         top.linkTo(icon2.top)
+                        bottom.linkTo(icon2.bottom)
                         start.linkTo(icon2.end)
                     }
             )
@@ -211,10 +228,11 @@ fun TopBar(
                     centerTo(parent)
                 }
             )
+
+            // Linie orizontală (separă punctele de reward)
             Box(Modifier
                 .height(1.dp)
-                .width(170.dp)
-                .padding(horizontal = 16.dp)
+                .width(150.dp)
                 .background(colorResource(R.color.grey))
                 .constrainAs(line2) {
                     top.linkTo(parent.top)
