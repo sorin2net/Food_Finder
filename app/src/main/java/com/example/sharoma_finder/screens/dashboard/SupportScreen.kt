@@ -91,16 +91,17 @@ fun SupportScreen() {
         listOf(
             ContactOption(
                 title = "Email Support",
-                subtitle = "support@foodfinder.com",
+                subtitle = "dumitriudenisgabriel@gmail.com",
                 icon = Icons.Default.Email,
                 action = {
                     val intent = Intent(Intent.ACTION_SENDTO).apply {
-                        data = Uri.parse("mailto:support@foodfinder.com")
+                        data = Uri.parse("mailto:dumitriudenisgabriel@gmail.com")
                         putExtra(Intent.EXTRA_SUBJECT, "Food Finder Support Request")
                     }
                     context.startActivity(Intent.createChooser(intent, "Send Email"))
                 }
             ),
+            /*
             ContactOption(
                 title = "Call Us",
                 subtitle = "+40 123 456 789",
@@ -110,14 +111,15 @@ fun SupportScreen() {
                     context.startActivity(intent)
                 }
             ),
+            */
             ContactOption(
-                title = "WhatsApp",
-                subtitle = "Chat with us",
+                title = "Messenger",
+                subtitle = "Mesaj Direct",
                 icon = Icons.Default.Chat,
                 action = {
                     try {
                         val intent = Intent(Intent.ACTION_VIEW).apply {
-                            data = Uri.parse("https://wa.me/40123456789?text=Hello, I need help with Food Finder app")
+                            data = Uri.parse("https://m.me/denis.dumitriu.1")
                         }
                         context.startActivity(intent)
                     } catch (e: Exception) {
@@ -167,6 +169,7 @@ fun SupportScreen() {
                     context.startActivity(Intent.createChooser(shareIntent, "Share via"))
                 }
             ),
+/*
             QuickAction(
                 title = "Tutorial Videos",
                 icon = Icons.Default.PlayCircleOutline,
@@ -175,6 +178,7 @@ fun SupportScreen() {
                     context.startActivity(intent)
                 }
             )
+*/
         )
     }
 
