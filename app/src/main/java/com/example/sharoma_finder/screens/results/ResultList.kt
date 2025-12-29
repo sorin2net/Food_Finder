@@ -143,20 +143,25 @@ fun ResultList(
     }
 
     // ✅ Search (Optimizat și el cu asSequence)
-    val searchResults = remember(searchText, allGlobalStores.size) {
+    // Modificăm logica de căutare pentru a include filtrul de categorie
+    // Modificăm blocul searchResults pentru a fi mai precis
+    // Modificăm blocul searchResults pentru a permite căutarea de fragmente (substrings)
+    // Actualizăm căutarea pentru a filtra STRICT după numele restaurantului (Title)
+    val searchResults = remember(searchText, allGlobalStores.size, id) {
         if (searchText.isEmpty()) {
             emptyList()
         } else {
             try {
                 allGlobalStores.asSequence()
                     .filter { store ->
-                        store.isValid() && (
-                                store.Title.contains(searchText, ignoreCase = true) ||
-                                        store.Address.contains(searchText, ignoreCase = true) ||
-                                        store.Tags.any { tag ->
-                                            tag.contains(searchText, ignoreCase = true)
-                                        }
-                                )
+                        // 1. Verificăm dacă magazinul aparține categoriei curente (id)
+                        val belongsToCategory = store.CategoryIds.contains(id)
+
+                        // 2. Verificăm DACĂ fragmentul căutat se află DOAR în Titlu
+                        val matchesTitle = store.Title.contains(searchText, ignoreCase = true)
+
+                        // Eliminăm complet matchesTags pentru a nu mai căuta în "Kebab", "Falafel" etc.
+                        belongsToCategory && store.isValid() && matchesTitle
                     }
                     .sortedBy {
                         if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
