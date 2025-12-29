@@ -448,22 +448,43 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         userImagePath.value = userManager.getImagePath()
     }
 
+    // ✅ Actualizat: Costă 50 XP doar dacă numele este diferit și se salvează
     fun updateUserName(newName: String) {
-        userName.value = newName
-        userManager.saveName(newName)
-        addPoints(5) // +5 puncte pentru schimbare nume
+        // Verificăm dacă noul nume este gol sau identic cu cel actual
+        if (newName.isBlank() || newName == userName.value) {
+            return // Ieșim din funcție fără a scădea puncte
+        }
+
+        if (userPoints.value >= 50) {
+            removePoints(50)
+            userName.value = newName
+            userManager.saveName(newName)
+            Toast.makeText(getApplication(), "Nume actualizat! (-50 XP)", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(getApplication(), "Nu ai destule puncte! (Necesar: 50 XP)", Toast.LENGTH_LONG).show()
+        }
     }
 
+    // ✅ Actualizat: Costă 100 XP doar dacă imaginea a fost procesată cu succes
     fun updateUserImage(uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val internalPath = userManager.copyImageToInternalStorage(uri)
-            withContext(Dispatchers.Main) {
-                if (internalPath != null) {
-                    userImagePath.value = internalPath
-                    userManager.saveImagePath(internalPath)
-                    addPoints(10) // +10 puncte pentru poza noua
+        if (userPoints.value >= 100) {
+            viewModelScope.launch(Dispatchers.IO) {
+                val internalPath = userManager.copyImageToInternalStorage(uri)
+                withContext(Dispatchers.Main) {
+                    // Verificăm dacă salvarea în stocarea internă a reușit (nu s-a dat cancel)
+                    if (internalPath != null) {
+                        removePoints(100) // Luăm punctele DOAR acum
+                        userImagePath.value = internalPath
+                        userManager.saveImagePath(internalPath)
+                        Toast.makeText(getApplication(), "Poză actualizată! (-100 XP)", Toast.LENGTH_SHORT).show()
+                    } else {
+                        // Dacă procesul a eșuat sau s-a anulat, nu se scad puncte
+                        Log.d("DashboardVM", "Update imagine anulat sau eșuat - nu s-au luat puncte")
+                    }
                 }
             }
+        } else {
+            Toast.makeText(getApplication(), "Nu ai destule puncte! (Necesar: 100 XP)", Toast.LENGTH_LONG).show()
         }
     }
 
