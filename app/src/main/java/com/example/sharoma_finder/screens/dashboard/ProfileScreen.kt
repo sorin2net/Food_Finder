@@ -463,23 +463,41 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
         }
 
         // --- EDIT NAME DIALOG ---
+        // --- EDIT NAME DIALOG ---
         if (showEditDialog) {
             AlertDialog(
                 onDismissRequest = { showEditDialog = false },
                 containerColor = colorResource(R.color.black3),
                 title = { Text("Change Name", color = colorResource(R.color.gold)) },
                 text = {
-                    OutlinedTextField(
-                        value = tempName,
-                        onValueChange = { tempName = it },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = colorResource(R.color.gold),
-                            unfocusedBorderColor = Color.Gray
+                    Column {
+                        OutlinedTextField(
+                            // ✅ MODIFICARE: Permitem update-ul doar dacă lungimea este <= 20
+                            value = tempName,
+                            onValueChange = { newValue ->
+                                if (newValue.length <= 20) {
+                                    tempName = newValue
+                                }
+                            },
+                            singleLine = true,
+                            label = { Text("Nume (max 20 caractere)") },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = colorResource(R.color.gold),
+                                unfocusedBorderColor = Color.Gray
+                            ),
+                            modifier = Modifier.fillMaxWidth()
                         )
-                    )
+
+                        // ✅ OPȚIONAL: Adăugăm un contor de caractere mic sub field
+                        Text(
+                            text = "${tempName.length} / 20",
+                            color = if (tempName.length >= 20) Color.Red else Color.Gray,
+                            fontSize = 12.sp,
+                            modifier = Modifier.align(Alignment.End).padding(top = 4.dp)
+                        )
+                    }
                 },
                 confirmButton = {
                     Button(
