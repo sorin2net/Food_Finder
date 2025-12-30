@@ -95,19 +95,26 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         loadUserData()
         loadFavorites()
 
-        // ✅ OPTIMIZARE: Mutăm procesele grele după ce UI-ul s-a încărcat
         viewModelScope.launch {
-            delay(1000) // Așteptăm o secundă să se deseneze ecranul
+            // 1. Așteptăm puțin pentru desenarea UI-ului inițial
+            delay(500)
             checkInternetConsent()
+            userPoints.value = userManager.getPoints()
 
+            // 2. Încărcăm cache-ul local (operațiune pe disc)
+            delay(300) // Mică pauză pentru a nu bloca
             checkLocalCache()
             observeLocalDatabase()
 
+            // 3. Pornim timer-ul de XP
+            delay(300)
+            startUsageTimer()
+
+            // 4. Ultima sarcină: Sincronizarea grea cu Firebase (doar dacă avem net)
+            delay(1000) // Lăsăm DB-ul să se liniștească înainte de rețea
             if (internetConsentManager.canUseInternet()) {
                 refreshDataFromNetwork()
             }
-            userPoints.value = userManager.getPoints()
-            startUsageTimer()
         }
     }
 
