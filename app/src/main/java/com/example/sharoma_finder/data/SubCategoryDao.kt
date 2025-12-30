@@ -18,7 +18,6 @@ interface SubCategoryDao {
     @Query("SELECT * FROM subcategories ORDER BY Id ASC")
     fun getAllSubCategories(): LiveData<List<SubCategoryModel>>
 
-    // ✅ Reintrodus conform structurii tale originale
     @Query("SELECT * FROM subcategories ORDER BY Id ASC")
     fun getAllSubCategoriesSync(): List<SubCategoryModel>
 

@@ -26,7 +26,7 @@ import com.example.sharoma_finder.domain.BannerModel
 @Composable
 fun Sliding(
     banners: List<BannerModel>,
-    onBannerClick: () -> Unit = {} // ✅ ADĂUGAT: Parametru callback
+    onBannerClick: () -> Unit = {}
 ) {
 
     val pagerState = rememberPagerState(pageCount = { banners.size })
@@ -48,7 +48,7 @@ fun Sliding(
                 .padding(16.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .height(150.dp)
-                .clickable { onBannerClick() } // ✅ ADĂUGAT: Click handler
+                .clickable { onBannerClick() }
         )
     }
 }
@@ -57,7 +57,7 @@ fun Sliding(
 fun Banner(
     banners: SnapshotStateList<BannerModel>,
     showBannerLoading: Boolean,
-    onBannerClick: () -> Unit = {} // ✅ Callback pentru click pe banner
+    onBannerClick: () -> Unit = {}
 ) {
     if (showBannerLoading) {
         Box(
@@ -71,7 +71,7 @@ fun Banner(
     } else {
         Sliding(
             banners = banners,
-            onBannerClick = onBannerClick // ✅ Transmitem callback-ul
+            onBannerClick = onBannerClick
         )
     }
 }

@@ -39,21 +39,19 @@ fun TopBar(
     userName: String,
     userImagePath: String?,
     wishlistCount: Int,
-    points: Int ,// ✅ Parametru nou adăugat
+    points: Int ,
     viewModel: DashboardViewModel
 ) {
-    // 1. LOGICA PENTRU TITLUL DE REWARD (bazat pe wishlist)
     val userRankTitle = viewModel.getUserRank()
 
-    // 2. LOGICA PENTRU SALUT (bazat pe oră)
     val greetingText = remember {
         val calendar = Calendar.getInstance()
         val hour = calendar.get(Calendar.HOUR_OF_DAY)
 
         when (hour) {
-            in 6..10 -> "Neata"
-            in 11..17 -> "Buna ziua"
-            else -> "Buna seara"
+            in 6..10 -> "Neaţa"
+            in 11..17 -> "Bună ziua"
+            else -> "Bună seara"
         }
     }
 
@@ -64,11 +62,10 @@ fun TopBar(
     ) {
         val (title1, title2, profile, box) = createRefs()
 
-        // --- POZA DE PROFIL ---
         if (userImagePath != null) {
             AsyncImage(
                 model = File(userImagePath),
-                contentDescription = "Profile picture",
+                contentDescription = "Poza de profil",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .padding(horizontal = 16.dp, vertical = 16.dp)
@@ -82,7 +79,7 @@ fun TopBar(
         } else {
             Image(
                 painter = painterResource(R.drawable.profile),
-                contentDescription = "Default profile picture",
+                contentDescription = "Poza de profil implicită",
                 modifier = Modifier
                     .padding(horizontal = 16.dp, vertical = 16.dp)
                     .size(60.dp)
@@ -94,7 +91,6 @@ fun TopBar(
             )
         }
 
-        // --- SALUTUL DINAMIC ---
         Text(
             text = "$greetingText, $userName",
             fontSize = 20.sp,
@@ -109,9 +105,8 @@ fun TopBar(
                 }
         )
 
-        // --- TEXTUL SECUNDAR ---
         Text(
-            text = "Ce mananci azi bun?",
+            text = "Ce mănânci azi bun?",
             fontSize = 25.sp,
             fontWeight = FontWeight.Bold,
             color = colorResource(R.color.gold),
@@ -125,7 +120,6 @@ fun TopBar(
                 }
         )
 
-        // --- SECȚIUNEA STATISTICI ---
         ConstraintLayout(
             modifier = Modifier
                 .padding(horizontal = 24.dp)
@@ -142,7 +136,6 @@ fun TopBar(
                 }
                 .clip(RoundedCornerShape(10.dp))
         ) {
-            // ✅ Am adăugat 'pointsValue' în refs
             val (icon1, icon2, wishTitle, wishCount, reward, wallet, pointsValue, line1, line2) = createRefs()
 
             Image(
@@ -150,16 +143,15 @@ fun TopBar(
                 contentDescription = null,
                 modifier = Modifier
                     .padding(start = 16.dp, top = 16.dp)
-                    .size(20.dp) // Dimensiune setată pentru aliniere
+                    .size(20.dp)
                     .constrainAs(icon1) {
                         top.linkTo(parent.top)
                         start.linkTo(parent.start)
                     }
             )
 
-            // ✅ Textul "Portofel" a devenit "Puncte Foodie"
             Text(
-                text = "Puncte Foodie",
+                text = "Shaormițe",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,
@@ -172,7 +164,6 @@ fun TopBar(
                     }
             )
 
-            // ✅ AFIȘARE PUNCTE XP SUB TITLU
             Text(
                 text = "$points XP",
                 fontSize = 16.sp,
@@ -197,7 +188,6 @@ fun TopBar(
                     }
             )
 
-            // --- REWARD DINAMIC ---
             Text(
                 text = userRankTitle,
                 fontSize = 14.sp,
@@ -223,26 +213,20 @@ fun TopBar(
                 }
             )
 
-            // Linie orizontală (separă punctele de reward)
-            // Linie orizontală (separă punctele de reward)
             Box(Modifier
                 .height(1.dp)
-                // ✅ MODIFICARE 1: Eliminăm width(150.dp) fix pentru a lăsa constrângerile să lucreze
                 .background(colorResource(R.color.grey))
                 .constrainAs(line2) {
                     top.linkTo(parent.top)
                     bottom.linkTo(parent.bottom)
 
-                    // ✅ MODIFICARE 2: O legăm de ambele margini ale zonei din stânga
-                    start.linkTo(parent.start, margin = 16.dp) // Adăugăm spațiu față de marginea stângă
-                    end.linkTo(line1.start, margin = 16.dp)    // Adăugăm spațiu față de linia verticală
+                    start.linkTo(parent.start, margin = 16.dp)
+                    end.linkTo(line1.start, margin = 16.dp)
 
-                    // ✅ MODIFICARE 3: Îi spunem să ocupe spațiul dintre cele două puncte de ancorare
                     width = Dimension.fillToConstraints
                 }
             )
 
-            // --- WISHLIST TITLE ---
             Text(
                 text = "Preferate",
                 fontSize = 14.sp,
@@ -257,9 +241,8 @@ fun TopBar(
                     }
             )
 
-            // --- WISHLIST COUNT ---
             Text(
-                text = "$wishlistCount ${if (wishlistCount == 1) "Local" else "Locale"}",
+                text = "$wishlistCount ${if (wishlistCount == 1) "Local" else "Localuri"}",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,

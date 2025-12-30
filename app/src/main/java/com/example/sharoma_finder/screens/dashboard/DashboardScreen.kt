@@ -11,7 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable // ✅ Import nou pentru salvarea stării
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -29,8 +29,7 @@ fun DashboardScreen(
     onBannerClick: () -> Unit,
     viewModel: DashboardViewModel
 ) {
-    // ✅ PASUL 1: Șters linia veche "var selectedTab by rememberSaveable..."
-    // Acum folosim starea persistentă din ViewModel.
+
 
     val categoryList by viewModel.loadCategory().observeAsState(initial = emptyList())
     val bannerList by viewModel.loadBanner().observeAsState(initial = emptyList())
@@ -60,9 +59,9 @@ fun DashboardScreen(
         containerColor = colorResource(R.color.black2),
         bottomBar = {
             BottomBar(
-                // ✅ PASUL 2: Citește starea direct din ViewModel
+
                 selected = viewModel.selectedTab.value,
-                // ✅ PASUL 3: Actualizează starea în ViewModel la click
+
                 onItemClick = { newTab -> viewModel.updateTab(newTab) }
             )
         }
@@ -72,7 +71,7 @@ fun DashboardScreen(
                 .fillMaxSize()
                 .padding(paddingValues = paddingValues)
         ) {
-            // ✅ PASUL 4: Decidem ce ecran afișăm în funcție de starea din ViewModel
+
             when (viewModel.selectedTab.value) {
                 "Acasă" -> {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -82,7 +81,7 @@ fun DashboardScreen(
                                 userImagePath = viewModel.userImagePath.value,
                                 wishlistCount = viewModel.favoriteStores.size,
                                 points = viewModel.userPoints.value,
-                                viewModel = viewModel // ✅ Adaugă asta pentru a trimite "creierul" către TopBar
+                                viewModel = viewModel
                             )
                         }
                         item { CategorySection(categories, showCategoryLoading, onCategoryClick) }

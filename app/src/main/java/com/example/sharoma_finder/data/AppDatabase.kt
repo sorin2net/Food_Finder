@@ -1,7 +1,6 @@
 package com.example.sharoma_finder.data
 
 import android.content.Context
-import android.util.Log
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -18,7 +17,7 @@ import com.example.sharoma_finder.domain.*
         SubCategoryModel::class,
         CacheMetadata::class
     ],
-    version = 6, // ✅ Păstrăm versiunea 5
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -33,7 +32,6 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        // ✅ MIGRĂRILE TALE ORIGINALE (Păstrează-le exact așa)
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("CREATE TABLE IF NOT EXISTS banners (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, image TEXT NOT NULL)")
@@ -54,7 +52,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // ✅ NOUA MIGRARE 4 -> 5 (Adăugată pentru a preveni crash-ul la liste)
         private val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS stores_new (firebaseKey TEXT PRIMARY KEY NOT NULL, Id INTEGER NOT NULL, CategoryIds TEXT NOT NULL, SubCategoryIds TEXT NOT NULL, Title TEXT NOT NULL, Latitude REAL NOT NULL, Longitude REAL NOT NULL, Address TEXT NOT NULL, Call TEXT NOT NULL, Activity TEXT NOT NULL, ShortAddress TEXT NOT NULL, Hours TEXT NOT NULL, ImagePath TEXT NOT NULL, IsPopular INTEGER NOT NULL, Tags TEXT NOT NULL)")
@@ -63,15 +60,11 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE stores_new RENAME TO stores")
             }
         }
+
         private val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // Creăm tabelul nou cu structura CategoryIds (List/String)
                 db.execSQL("CREATE TABLE IF NOT EXISTS subcategories_new (Id INTEGER PRIMARY KEY NOT NULL, CategoryIds TEXT NOT NULL, ImagePath TEXT NOT NULL, Name TEXT NOT NULL)")
-
-                // Convertim datele vechi: punem ID-ul vechi într-un format de listă JSON ["id"]
                 db.execSQL("INSERT INTO subcategories_new (Id, CategoryIds, ImagePath, Name) SELECT Id, '[\"' || CategoryId || '\"]', ImagePath, Name FROM subcategories")
-
-                // Înlocuim tabelul vechi
                 db.execSQL("DROP TABLE subcategories")
                 db.execSQL("ALTER TABLE subcategories_new RENAME TO subcategories")
             }
@@ -84,7 +77,6 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "sharoma_database"
                 )
-                    // ✅ Înregistrăm toate migrările, inclusiv cea nouă
                     .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .fallbackToDestructiveMigration()
                     .build()
@@ -93,7 +85,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // ✅ Funcția ta de debug pe care o poți păstra
         fun getDatabaseVersion(context: Context): Int {
             return try {
                 val db = getDatabase(context).openHelper.readableDatabase

@@ -51,7 +51,6 @@ fun BottomBar(
     onItemClick: (String) -> Unit
 ) {
     val bottomMenuItemList = prepareBottomMenu()
-    // val context = LocalContext.current // Nu e folosit momentan, dar il poti pastra daca vrei Toast
 
     BottomAppBar(
         backgroundColor = colorResource(R.color.black3),
@@ -90,5 +89,5 @@ fun BottomBar(
 @Preview
 @Composable
 fun BottomBarPreview() {
-    BottomBar(selected = "Home", onItemClick = {})
+    BottomBar(selected = "Acasă", onItemClick = {})
 }

@@ -10,7 +10,6 @@ class FavoritesManager(context: Context) {
 
     fun getFavorites(): Set<String> {
         val favorites = sharedPreferences.getStringSet("favorite_ids", emptySet()) ?: emptySet()
-        Log.d("FavoritesManager", "Getting favorites: $favorites")
         return favorites
     }
 
@@ -18,19 +17,16 @@ class FavoritesManager(context: Context) {
         val currentFavorites = getFavorites().toMutableSet()
         currentFavorites.add(uniqueKey)
         sharedPreferences.edit { putStringSet("favorite_ids", currentFavorites) }
-        Log.d("FavoritesManager", "Added favorite: $uniqueKey, Total: ${currentFavorites.size}")
     }
 
     fun removeFavorite(uniqueKey: String) {
         val currentFavorites = getFavorites().toMutableSet()
         currentFavorites.remove(uniqueKey)
         sharedPreferences.edit { putStringSet("favorite_ids", currentFavorites) }
-        Log.d("FavoritesManager", "Removed favorite: $uniqueKey, Total: ${currentFavorites.size}")
     }
 
     fun isFavorite(uniqueKey: String): Boolean {
         val isFav = getFavorites().contains(uniqueKey)
-        Log.d("FavoritesManager", "Checking favorite: $uniqueKey = $isFav")
         return isFav
     }
 }

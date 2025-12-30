@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Food Finder"
+rootProject.name = "Shaorma Finder"
 include(":app")

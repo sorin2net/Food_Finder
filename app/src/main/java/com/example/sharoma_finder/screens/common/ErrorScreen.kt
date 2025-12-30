@@ -25,11 +25,11 @@ fun ErrorScreen(
             .fillMaxSize()
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        // --- MODIFICAREA ESTE AICI ---
+
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Oops! Something went wrong",
+            text = "Oops! Ceva nu a mers bine",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = colorResource(R.color.gold),
@@ -54,7 +54,7 @@ fun ErrorScreen(
             )
         ) {
             Text(
-                text = "Retry",
+                text = "Reîncearcă",
                 color = Color.Black,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold

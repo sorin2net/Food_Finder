@@ -5,7 +5,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 @Keep
-@Entity(tableName = "categories") // ✅ Acum e salvat în Room
+@Entity(tableName = "categories")
 data class CategoryModel(
     @PrimaryKey
     var Id: Int = 0,

@@ -13,10 +13,8 @@ data class StoreModel(
     var firebaseKey: String = "",
     var Id: Int = 0,
 
-    // ✅ Schimbat din String în List<String>
     var CategoryIds: List<String> = emptyList(),
 
-    // ✅ Adăugat pentru subcategorii multiple
     var SubCategoryIds: List<String> = emptyList(),
 
     var Title: String = "",
@@ -41,14 +39,14 @@ data class StoreModel(
         return Title.isNotBlank() &&
                 Latitude != 0.0 &&
                 Longitude != 0.0 &&
-                CategoryIds.isNotEmpty() && // ✅ Verificăm dacă are măcar o categorie
+                CategoryIds.isNotEmpty() &&
                 Address.isNotBlank()
     }
 
     fun hasTag(tagName: String): Boolean {
         return Tags.any { it.equals(tagName, ignoreCase = true) }
     }
-    // În StoreModel.kt
+
     fun getCleanPhoneNumber(): String {
         return Call.trim()
             .replace("-", "")

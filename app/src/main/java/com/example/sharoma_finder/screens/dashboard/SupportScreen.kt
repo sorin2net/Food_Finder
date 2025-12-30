@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sharoma_finder.R
 
-// ===== DATA CLASSES =====
 data class FAQItem(
     val question: String,
     val answer: String
@@ -43,62 +42,55 @@ data class QuickAction(
     val action: () -> Unit
 )
 
-// ===== MAIN COMPOSABLE =====
 @Composable
 fun SupportScreen() {
     val context = LocalContext.current
 
-    // ✅ FAQ LIST
     val faqList = remember {
         listOf(
             FAQItem(
-                "How do I find restaurants near me?",
-                "The app uses GPS to show nearby restaurants. Make sure location is enabled, then check the 'Nearest' section on the Results page."
+                "Nu mă pot decide ce să mănânc. Mă poate ajuta aplicația?",
+                "Da! Folosește funcția de alegere aleatorie (Random Picker). Aceasta va selecta automat un restaurant din lista disponibilă pentru a te ajuta să iei o decizie rapidă când ești nehotărât."
             ),
             FAQItem(
-                "How do I save my favorite restaurants?",
-                "Tap the heart icon on any restaurant card to add it to your Wishlist. Access your favorites from the Wishlist tab."
+                "Cum funcționează sistemul de puncte XP?",
+                "Primești puncte XP prin interacțiunea cu aplicația, cum ar fi salvarea restaurantelor la favorite. Pe măsură ce aduni puncte, rangul tău crește de la 'La Dietă' până la cel de 'Sultan'."
             ),
             FAQItem(
-                "What do the subcategories mean?",
-                "Subcategories (Burger, Pizza, Sushi, etc.) help filter restaurants by food type. Tap one to see only matching restaurants."
+                "De ce îmi apare mesajul 'Nicio conexiune' în Profil?",
+                "Acest mesaj apare când dispozitivul tău nu are acces la internet. În acest caz, aplicația trece automat în Modul Offline, permițându-ți să vezi doar datele deja salvate în memoria cache."
             ),
             FAQItem(
-                "How accurate is the distance shown?",
-                "Distance is calculated in real-time using GPS. Make sure location services are enabled for best accuracy."
+                "Pot vedea traseul până la o shaormerie?",
+                "Da, în ecranul de detalii al fiecărui magazin poți deschide harta. Aceasta îți va arăta locația exactă și distanța calculată în timp real prin GPS față de poziția ta actuală."
             ),
             FAQItem(
-                "Can I use the app without GPS?",
-                "Yes, but you won't see distance calculations or 'Nearest' sorting. You can still browse all restaurants and search."
+                "Ce fac dacă butonul de activare GPS nu funcționează?",
+                "Dacă ai refuzat permisiunea de mai multe ori, Android poate bloca fereastra pop-up. Folosește link-ul 'Deschide Setările' din ecranul Profil pentru a activa manual locația din setările telefonului."
             ),
             FAQItem(
-                "How do I contact a restaurant?",
-                "Open the restaurant's map view and tap 'Call to Store' to dial directly from the app."
+                "Sunt datele mele în siguranță?",
+                "Aplicația colectează doar date minime (cum ar fi locația aproximativă) pentru a funcționa corect. Poți consulta oricând Politica de Confidențialitate direct din acest ecran pentru detalii complete."
             ),
             FAQItem(
-                "How do I change my profile picture?",
-                "Go to Profile tab, tap your current picture, and select a new photo from your gallery."
-            ),
-            FAQItem(
-                "What does the Reward rank mean?",
-                "Your rank (Newcomer, Appetizer, Gourmand, Connoisseur) increases based on how many restaurants you add to your Wishlist."
+                "Cum pot vedea doar shaormeriile care au și gyros?",
+                "Poți folosi sistemul de categorii și subcategorii pentru a filtra rezultatele. Alege categoria dorită pentru a vedea doar localurile care servesc produsele respective."
             )
         )
     }
 
-    // ✅ CONTACT OPTIONS
     val contactOptions = remember {
         listOf(
             ContactOption(
-                title = "Email Support",
+                title = "Email Contact",
                 subtitle = "dumitriudenisgabriel@gmail.com",
                 icon = Icons.Default.Email,
                 action = {
                     val intent = Intent(Intent.ACTION_SENDTO).apply {
                         data = Uri.parse("mailto:dumitriudenisgabriel@gmail.com")
-                        putExtra(Intent.EXTRA_SUBJECT, "Food Finder Support Request")
+                        putExtra(Intent.EXTRA_SUBJECT, "Shaorma Finder Support Request")
                     }
-                    context.startActivity(Intent.createChooser(intent, "Send Email"))
+                    context.startActivity(Intent.createChooser(intent, "Trimite Email"))
                 }
             ),
             /*
@@ -123,7 +115,6 @@ fun SupportScreen() {
                         }
                         context.startActivity(intent)
                     } catch (e: Exception) {
-                        // Fallback dacă WhatsApp nu e instalat
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/40123456789"))
                         context.startActivity(intent)
                     }
@@ -141,11 +132,10 @@ fun SupportScreen() {
         )
     }
 
-    // ✅ QUICK ACTIONS
     val quickActions = remember {
         listOf(
             QuickAction(
-                title = "Rate Our App",
+                title = "Evaluează aplicația",
                 icon = Icons.Default.Star,
                 action = {
                     try {
@@ -158,15 +148,15 @@ fun SupportScreen() {
                 }
             ),
             QuickAction(
-                title = "Share with Friends",
+                title = "Distribuie prietenilor",
                 icon = Icons.Default.Share,
                 action = {
                     val shareIntent = Intent().apply {
                         action = Intent.ACTION_SEND
                         type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, "Check out Food Finder app! https://play.google.com/store/apps/details?id=${context.packageName}")
+                        putExtra(Intent.EXTRA_TEXT, "Încearcă aplicația Shaorma Finder! https://play.google.com/store/apps/details?id=${context.packageName}")
                     }
-                    context.startActivity(Intent.createChooser(shareIntent, "Share via"))
+                    context.startActivity(Intent.createChooser(shareIntent, "Distribuie prin"))
                 }
             ),
 /*
@@ -182,7 +172,6 @@ fun SupportScreen() {
         )
     }
 
-    // ===== UI =====
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -190,7 +179,6 @@ fun SupportScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // ===== HEADER =====
         item {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -198,29 +186,28 @@ fun SupportScreen() {
             ) {
                 Icon(
                     imageVector = Icons.Default.SupportAgent,
-                    contentDescription = "Support",
+                    contentDescription = "Suport",
                     tint = colorResource(R.color.gold),
                     modifier = Modifier.size(64.dp)
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "How can we help?",
+                    text = "Nevoie de ajutor?",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     color = colorResource(R.color.gold)
                 )
                 Text(
-                    text = "We're here to assist you",
+                    text = "Sunt aici să te ajut",
                     fontSize = 16.sp,
                     color = Color.Gray
                 )
             }
         }
 
-        // ===== CONTACT OPTIONS =====
         item {
             Text(
-                text = "Contact Us",
+                text = "Contact",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = colorResource(R.color.gold),
@@ -232,10 +219,9 @@ fun SupportScreen() {
             ContactCard(option)
         }
 
-        // ===== QUICK ACTIONS =====
         item {
             Text(
-                text = "Quick Actions",
+                text = "Acțiuni",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = colorResource(R.color.gold),
@@ -247,10 +233,9 @@ fun SupportScreen() {
             QuickActionCard(action)
         }
 
-        // ===== FAQ SECTION =====
         item {
             Text(
-                text = "Frequently Asked Questions",
+                text = "Întrebări frecvente",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = colorResource(R.color.gold),
@@ -262,19 +247,16 @@ fun SupportScreen() {
             FAQCard(faq)
         }
 
-        // ===== APP INFO =====
         item {
             AppInfoSection()
         }
 
-        // Spacing la final
         item {
             Spacer(Modifier.height(32.dp))
         }
     }
 }
 
-// ===== CONTACT CARD =====
 @Composable
 fun ContactCard(option: ContactOption) {
     Card(
@@ -314,14 +296,13 @@ fun ContactCard(option: ContactOption) {
             }
             Icon(
                 imageVector = Icons.Default.ChevronRight,
-                contentDescription = "Open",
+                contentDescription = "Deschide",
                 tint = Color.Gray
             )
         }
     }
 }
 
-// ===== QUICK ACTION CARD =====
 @Composable
 fun QuickActionCard(action: QuickAction) {
     Card(
@@ -355,14 +336,13 @@ fun QuickActionCard(action: QuickAction) {
             )
             Icon(
                 imageVector = Icons.Default.ChevronRight,
-                contentDescription = "Go",
+                contentDescription = "Mergi",
                 tint = Color.Gray
             )
         }
     }
 }
 
-// ===== FAQ CARD =====
 @Composable
 fun FAQCard(faq: FAQItem) {
     var expanded by remember { mutableStateOf(false) }
@@ -394,7 +374,7 @@ fun FAQCard(faq: FAQItem) {
                 )
                 Icon(
                     imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    contentDescription = if (expanded) "Restrânge" else "Extinde",
                     tint = colorResource(R.color.gold)
                 )
             }
@@ -414,7 +394,6 @@ fun FAQCard(faq: FAQItem) {
     }
 }
 
-// ===== APP INFO SECTION =====
 @Composable
 fun AppInfoSection() {
     val context = LocalContext.current
@@ -440,20 +419,20 @@ fun AppInfoSection() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Food Finder",
+                text = "Shaorma Finder",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = colorResource(R.color.gold)
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Version ${packageInfo?.versionName ?: "1.0"}",
+                text = "Versiunea ${packageInfo?.versionName ?: "1.0"}",
                 fontSize = 14.sp,
                 color = Color.Gray
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "© 2025 Food Finder. All rights reserved.",
+                text = "© 2025 Shaorma Finder. Toate drepturile rezervate.",
                 fontSize = 12.sp,
                 color = Color.Gray,
                 textAlign = TextAlign.Center
@@ -464,19 +443,19 @@ fun AppInfoSection() {
             ) {
                 TextButton(
                     onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://foodfinder.com/privacy"))
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://docs.google.com/document/d/1YbqtiGqcBa-IwRyncbLYT7Z6PJ87KaGWQfGyLd4a_J4/edit?usp=sharing"))
                         context.startActivity(intent)
                     }
                 ) {
-                    Text("Privacy Policy", color = colorResource(R.color.gold), fontSize = 12.sp)
+                    Text("Politica de confidențialitate", color = colorResource(R.color.gold), fontSize = 12.sp)
                 }
                 TextButton(
                     onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://foodfinder.com/terms"))
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://docs.google.com/document/d/1Vi7UO31JB-qnZt6K9qWIDp2WhDS-BIMcRFDzU-8cGMY/edit?usp=sharing"))
                         context.startActivity(intent)
                     }
                 ) {
-                    Text("Terms of Service", color = colorResource(R.color.gold), fontSize = 12.sp)
+                    Text("Termeni și condiții", color = colorResource(R.color.gold), fontSize = 12.sp)
                 }
             }
         }

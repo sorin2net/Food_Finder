@@ -1,6 +1,5 @@
 package com.example.sharoma_finder.repository
 
-import android.util.Log
 import androidx.lifecycle.LiveData
 import com.example.sharoma_finder.data.BannerDao
 import com.example.sharoma_finder.data.CategoryDao
@@ -28,16 +27,11 @@ class DashboardRepository(
     suspend fun refreshCategories() {
         withContext(Dispatchers.IO) {
             try {
-                Log.d("DashboardRepo", "🌍 Syncing categories...")
-
                 val snapshot = withTimeoutOrNull(10000L) {
                     firebaseDatabase.getReference("Category").get().await()
                 }
 
-                if (snapshot == null) {
-                    Log.w("DashboardRepo", "⏰ Category sync timeout")
-                    return@withContext
-                }
+                if (snapshot == null) return@withContext
 
                 val categories = mutableListOf<CategoryModel>()
                 for (child in snapshot.children) {
@@ -46,11 +40,9 @@ class DashboardRepository(
 
                 if (categories.isNotEmpty()) {
                     categoryDao.insertAll(categories)
-                    Log.d("DashboardRepo", "✅ Synced ${categories.size} categories")
                 }
-
             } catch (e: Exception) {
-                Log.e("DashboardRepo", "❌ Category sync failed: ${e.message}")
+                // Fail silently or handle error without logging to production console
             }
         }
     }
@@ -58,16 +50,11 @@ class DashboardRepository(
     suspend fun refreshBanners() {
         withContext(Dispatchers.IO) {
             try {
-                Log.d("DashboardRepo", "🌍 Syncing banners...")
-
                 val snapshot = withTimeoutOrNull(10000L) {
                     firebaseDatabase.getReference("Banners").get().await()
                 }
 
-                if (snapshot == null) {
-                    Log.w("DashboardRepo", "⏰ Banner sync timeout")
-                    return@withContext
-                }
+                if (snapshot == null) return@withContext
 
                 val banners = mutableListOf<BannerModel>()
                 for (child in snapshot.children) {
@@ -76,31 +63,21 @@ class DashboardRepository(
 
                 if (banners.isNotEmpty()) {
                     bannerDao.insertAll(banners)
-                    Log.d("DashboardRepo", "✅ Synced ${banners.size} banners")
                 }
-
             } catch (e: Exception) {
-                Log.e("DashboardRepo", "❌ Banner sync failed: ${e.message}")
+                // Fail silently
             }
         }
     }
 
-    /**
-     * ✅ FIX: Parsing manual pentru SubCategory (CategoryId poate fi Int/String)
-     */
     suspend fun refreshSubCategories() {
         withContext(Dispatchers.IO) {
             try {
-                Log.d("DashboardRepo", "🌍 Syncing subcategories...")
-
                 val snapshot = withTimeoutOrNull(10000L) {
                     firebaseDatabase.getReference("SubCategory").get().await()
                 }
 
-                if (snapshot == null) {
-                    Log.w("DashboardRepo", "⏰ SubCategory sync timeout")
-                    return@withContext
-                }
+                if (snapshot == null) return@withContext
 
                 val subCategories = mutableListOf<SubCategoryModel>()
                 for (child in snapshot.children) {
@@ -112,27 +89,16 @@ class DashboardRepository(
 
                 if (subCategories.isNotEmpty()) {
                     subCategoryDao.insertAll(subCategories)
-                    Log.d("DashboardRepo", "✅ Synced ${subCategories.size} subcategories")
                 }
-
             } catch (e: Exception) {
-                Log.e("DashboardRepo", "❌ SubCategory sync failed: ${e.message}")
+                // Fail silently
             }
         }
     }
 
-    /**
-     * ✅ HELPER: Parsează SubCategory manual
-     */
-    /**
-     * ✅ HELPER: Parsează SubCategory manual
-     */
     private fun parseSubCategoryFromSnapshot(snapshot: DataSnapshot): SubCategoryModel? {
         return try {
             val map = snapshot.value as? Map<*, *> ?: return null
-
-            // Citim noua listă "CategoryIds" sau vechiul "CategoryId" pentru compatibilitate
-            // ✅ Acum apelăm funcția de mai jos
             val categoryIds = convertToList(map["CategoryIds"] ?: map["CategoryId"])
 
             SubCategoryModel(
@@ -142,17 +108,15 @@ class DashboardRepository(
                 Name = map["Name"] as? String ?: ""
             )
         } catch (e: Exception) {
-            Log.e("DashboardRepo", "Failed to parse SubCategory: ${e.message}")
             null
         }
     }
 
-    // ✅ MUTATĂ AICI (în afara funcției de parsare, dar în interiorul clasei)
     private fun convertToList(data: Any?): List<String> {
         return when (data) {
-            is List<*> -> data.mapNotNull { it?.toString() } // ✅ Scoate elementele null
+            is List<*> -> data.mapNotNull { it?.toString() }
             is Long, is Int, is String -> listOf(data.toString())
-            else -> emptyList() // ✅ Acoperă și cazul 'null' global
+            else -> emptyList()
         }
     }
 

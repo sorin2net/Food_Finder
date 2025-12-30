@@ -36,17 +36,17 @@ fun WishlistScreen(
             .background(colorResource(R.color.black2))
     ) {
         when {
-            // Dacă datele încă se încarcă
+
             !isDataLoaded -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = colorResource(R.color.gold))
                 }
             }
-            // Dacă lista e goală
+
             favoriteStores.isEmpty() -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "Your wishlist is empty\n\nTap the heart icon on stores to add them here!",
+                        text = "Lista ta de favorite este goală\n\nApasă pe inimioară pentru a salva localurile tale preferate aici!",
                         color = Color.Gray,
                         fontSize = 18.sp,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -54,7 +54,7 @@ fun WishlistScreen(
                     )
                 }
             }
-            // Afișează lista de favorite
+
             else -> {
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),

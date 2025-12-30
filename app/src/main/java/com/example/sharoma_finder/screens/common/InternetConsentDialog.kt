@@ -20,22 +20,16 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.sharoma_finder.R
 
-/**
- * ✅ DIALOG DE CONSIMȚĂMÂNT INTERNET
- *
- * Afișează un dialog elegant care explică de ce aplicația are nevoie de internet
- * Similar cu dialogul de permisiuni locație, dar adaptat pentru internet
- */
 @Composable
 fun InternetConsentDialog(
     onAccept: () -> Unit,
     onDecline: () -> Unit
 ) {
     Dialog(
-        onDismissRequest = { /* Nu permitem închidere prin tap în afară */ },
+        onDismissRequest = { },
         properties = DialogProperties(
-            dismissOnBackPress = false, // Nu se închide cu Back
-            dismissOnClickOutside = false // Nu se închide prin tap în afară
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
         )
     ) {
         Card(
@@ -53,7 +47,6 @@ fun InternetConsentDialog(
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Icon
                 Icon(
                     imageVector = Icons.Default.Wifi,
                     contentDescription = "Internet",
@@ -63,9 +56,8 @@ fun InternetConsentDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Titlu
                 Text(
-                    text = "Internet Connection Required",
+                    text = "Conexiune la internet necesară",
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = colorResource(R.color.gold),
@@ -74,9 +66,8 @@ fun InternetConsentDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Descriere
                 Text(
-                    text = "This app needs internet access to provide you with:",
+                    text = "Această aplicație are nevoie de acces la internet pentru:",
                     fontSize = 16.sp,
                     color = Color.White,
                     textAlign = TextAlign.Center
@@ -84,20 +75,18 @@ fun InternetConsentDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Lista de beneficii
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    InternetFeatureItem("🗺️ Real-time store locations on maps")
-                    InternetFeatureItem("📸 Store photos and information")
-                    InternetFeatureItem("⭐ Latest popular stores")
-                    InternetFeatureItem("🔄 Synchronized favorites across devices")
+                    InternetFeatureItem("Locațiile magazinelor în timp real pe hartă")
+                    InternetFeatureItem("Fotografii și informații despre magazine")
+                    InternetFeatureItem("Cele mai recente magazine populare")
+                    InternetFeatureItem("Sincronizarea favoritelor pe toate dispozitivele")
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Notă de securitate
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -119,7 +108,7 @@ fun InternetConsentDialog(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Without internet, you can only browse cached data",
+                            text = "Fără internet, puteți răsfoi doar datele salvate local",
                             fontSize = 12.sp,
                             color = Color.Gray,
                             lineHeight = 16.sp
@@ -129,32 +118,26 @@ fun InternetConsentDialog(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Butoane
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Buton Decline
                     OutlinedButton(
                         onClick = onDecline,
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = Color.White
                         ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            Color.Gray
-                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(
-                            text = "Decline",
+                            text = "Refuză",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
 
-                    // Buton Accept
                     Button(
                         onClick = onAccept,
                         modifier = Modifier.weight(1f),
@@ -164,7 +147,7 @@ fun InternetConsentDialog(
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(
-                            text = "Accept",
+                            text = "Acceptă",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.Black
@@ -174,9 +157,8 @@ fun InternetConsentDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Text legal mic
                 Text(
-                    text = "You can change this in Settings later",
+                    text = "Puteți schimba acest lucru ulterior în Setări",
                     fontSize = 11.sp,
                     color = Color.Gray,
                     textAlign = TextAlign.Center
@@ -186,9 +168,6 @@ fun InternetConsentDialog(
     }
 }
 
-/**
- * ✅ Component pentru fiecare feature din listă
- */
 @Composable
 private fun InternetFeatureItem(text: String) {
     Row(

@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.sharoma_finder.R
-import com.example.sharoma_finder.screens.common.InternetConsentDialog // ✅ Asigură-te că ai acest import
+import com.example.sharoma_finder.screens.common.InternetConsentDialog
 import com.example.sharoma_finder.viewModel.DashboardViewModel
 import java.io.File
 
@@ -53,15 +53,12 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
     val context = LocalContext.current
 
     var showEditDialog by remember { mutableStateOf(false) }
-    // ✅ STATE PENTRU DIALOGUL DE CONSIMȚĂMÂNT DIN PROFIL
     var showConsentDialog by remember { mutableStateOf(false) }
 
     var tempName by remember { mutableStateOf("") }
 
-    // ✅ MONITORIZARE INTERNET LIVE
     val isSystemOnline by rememberConnectivityState()
 
-    // ✅ LAUNCHER PENTRU POZĂ
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
@@ -70,7 +67,6 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
         }
     }
 
-    // ✅ LAUNCHER PENTRU PERMISIUNI LOCAȚIE
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -79,13 +75,12 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
 
         if (granted) {
             viewModel.checkLocationPermission()
-            Toast.makeText(context, "Location activated! 📍", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Locație activată!", Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(context, "Permission needed for nearest stores.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Este necesară permisiunea pentru locale apropiate.", Toast.LENGTH_SHORT).show()
         }
     }
 
-    // ✅ ANIMAȚIE PENTRU REFRESH
     val infiniteTransition = rememberInfiniteTransition(label = "refresh_spin")
     val angle by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -96,19 +91,16 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
         label = "spin_angle"
     )
 
-    // ✅ AICI INSERĂM DIALOGUL (Apare peste ecran când showConsentDialog este true)
     if (showConsentDialog) {
         InternetConsentDialog(
             onAccept = {
-                // Utilizatorul a acceptat: Salvăm consimțământul și pornim netul
                 viewModel.grantInternetConsentFromProfile()
                 showConsentDialog = false
-                Toast.makeText(context, "Internet Access Granted! 🌍", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Acces la internet acordat!", Toast.LENGTH_SHORT).show()
             },
             onDecline = {
-                // Utilizatorul a refuzat din nou: Switch-ul rămâne OFF
                 showConsentDialog = false
-                Toast.makeText(context, "Internet Access Denied ❌", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Acces la internet refuzat", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -125,16 +117,14 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                 .padding(top = 64.dp)
                 .padding(horizontal = 16.dp)
         ) {
-            // --- TITLE ---
             Text(
-                text = "My Profile",
+                text = "Profilul meu",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = colorResource(R.color.gold),
                 modifier = Modifier.padding(bottom = 32.dp)
             )
 
-            // --- PROFILE PICTURE ---
             Box(
                 modifier = Modifier
                     .size(150.dp)
@@ -149,14 +139,14 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                 if (viewModel.userImagePath.value != null) {
                     AsyncImage(
                         model = File(viewModel.userImagePath.value!!),
-                        contentDescription = "Profile Picture",
+                        contentDescription = "Poza de profil",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
                     Image(
                         painter = painterResource(R.drawable.profile),
-                        contentDescription = "Default Profile",
+                        contentDescription = "Profil implicit",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -173,7 +163,6 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- NAME + EDIT BUTTON ---
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
@@ -190,13 +179,12 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                 }) {
                     Icon(
                         imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit Name",
+                        contentDescription = "Editați numele",
                         tint = colorResource(R.color.gold)
                     )
                 }
             }
 
-// ✅ RANGUL (Acum este SUB rând, deci pe o linie nouă)
             Text(
                 text = viewModel.getUserRank(),
                 fontSize = 18.sp,
@@ -218,7 +206,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     LinearProgressIndicator(
-                        progress = viewModel.getRankProgress(), // ✅ Sultan (692 XP) va avea bara 100% plină
+                        progress = viewModel.getRankProgress(),
                         modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)),
                         color = colorResource(R.color.gold),
                         trackColor = Color.DarkGray
@@ -228,7 +216,6 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ✅ ========== INTERNET TOGGLE SWITCH ==========
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -267,28 +254,26 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (isSystemOnline) "Internet Access" else "No Connection",
+                            text = if (isSystemOnline) "Acces la Internet" else "Nicio conexiune",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = if(isSystemOnline) Color.White else Color.LightGray
                         )
                         Text(
                             text = when {
-                                !isSystemOnline -> "Check device settings"
-                                viewModel.hasInternetAccess.value -> "Online mode"
-                                else -> "Offline mode"
+                                !isSystemOnline -> "Verificați setările dispozitivului"
+                                viewModel.hasInternetAccess.value -> "Modul online"
+                                else -> "Modul offline"
                             },
                             fontSize = 12.sp,
                             color = Color.Gray
                         )
                     }
 
-                    // ✅ MODIFICARE PRINCIPALĂ: Logica Switch-ului
                     Switch(
                         checked = viewModel.hasInternetAccess.value && isSystemOnline,
                         enabled = isSystemOnline,
                         onCheckedChange = { isChecked ->
-                            // Folosim noua funcție din ViewModel care decide dacă arată dialogul
                             viewModel.onInternetSwitchToggled(
                                 enabled = isChecked,
                                 onShowConsentDialog = {
@@ -309,19 +294,17 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
             }
 
             Text(
-                text = if (!isSystemOnline) "System offline. Cached data only." else "Disable to use only cached data (offline mode)",
+                text = if (!isSystemOnline) "Sistem offline. Doar date memorate în cache." else "Dezactivați pentru a utiliza doar datele din cache",
                 color = if(!isSystemOnline) Color.Red else Color.Gray,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 32.dp, vertical = 4.dp)
             )
 
-            // ✅ ========== LOCATION PERMISSION SECTION ==========
             Spacer(modifier = Modifier.height(16.dp))
 
 
             if (!viewModel.isLocationPermissionGranted.value) {
-                // CAZUL 1: Permisiune lipsă - Buton Roșu Activ
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -352,13 +335,13 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                         )
                         Column(modifier = Modifier.padding(start = 16.dp)) {
                             Text(
-                                text = "Activate GPS Location",
+                                text = "Activați locația GPS",
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             )
                             Text(
-                                text = "Required for Nearest Stores",
+                                text = "Necesar pentru locurile aproapiate",
                                 color = Color.Gray,
                                 fontSize = 12.sp
                             )
@@ -366,7 +349,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                     }
                 }
                 Text(
-                    text = "Button not working? Open Settings",
+                    text = "Butonul nu funcționează? Deschiți Setările",
                     color = colorResource(R.color.gold),
                     fontSize = 12.sp,
                     modifier = Modifier
@@ -380,7 +363,6 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                 )
 
             } else {
-                // CAZUL 2: Permisiune Acordată - Card Verde informativ
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -396,24 +378,22 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                         modifier = Modifier.size(24.dp)
                     )
                     Text(
-                        text = "Location Active",
+                        text = "Locație activă",
                         color = Color.White,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(start = 16.dp)
                     )
                 }
             }
-            // ========================================================
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- FORCE REFRESH BUTTON ---
             val canRefresh = !viewModel.isRefreshing.value && viewModel.hasInternetAccess.value && isSystemOnline
 
             Button(
                 onClick = {
                     viewModel.forceRefreshAllData {
-                        Toast.makeText(context, "Everything refreshed! 🚀", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Reîncărcat cu succes!", Toast.LENGTH_SHORT).show()
                     }
                 },
                 enabled = canRefresh,
@@ -428,7 +408,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
-                        contentDescription = "Refresh",
+                        contentDescription = "Reîncarcă",
                         tint = if (canRefresh) Color.Black else Color.Gray,
                         modifier = Modifier.rotate(if (viewModel.isRefreshing.value) angle else 0f)
                     )
@@ -437,10 +417,10 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
 
                     Text(
                         text = when {
-                            !isSystemOnline -> "No Internet"
-                            !viewModel.hasInternetAccess.value -> "Offline Mode"
-                            viewModel.isRefreshing.value -> "Refreshing..."
-                            else -> "Force Refresh Data"
+                            !isSystemOnline -> "Fără internet"
+                            !viewModel.hasInternetAccess.value -> "Modul offline"
+                            viewModel.isRefreshing.value -> "Reîncărcare..."
+                            else -> "Actualizează datele"
                         },
                         color = if (canRefresh) Color.Black else Color.Gray,
                         fontSize = 16.sp,
@@ -451,9 +431,9 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
 
             Text(
                 text = when {
-                    !isSystemOnline -> "Cannot refresh without connection"
-                    viewModel.hasInternetAccess.value -> "Force download latest data from Firebase"
-                    else -> "Enable internet access to refresh data"
+                    !isSystemOnline -> "Nu se poate actualiza fără conexiune la internet"
+                    viewModel.hasInternetAccess.value -> "Forțați descărcarea celor mai recente date"
+                    else -> "Activați accesul la internet pentru a actualiza datele"
                 },
                 color = Color.Gray,
                 fontSize = 12.sp,
@@ -462,17 +442,14 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
             )
         }
 
-        // --- EDIT NAME DIALOG ---
-        // --- EDIT NAME DIALOG ---
         if (showEditDialog) {
             AlertDialog(
                 onDismissRequest = { showEditDialog = false },
                 containerColor = colorResource(R.color.black3),
-                title = { Text("Change Name", color = colorResource(R.color.gold)) },
+                title = { Text("Schimbă numele", color = colorResource(R.color.gold)) },
                 text = {
                     Column {
                         OutlinedTextField(
-                            // ✅ MODIFICARE: Permitem update-ul doar dacă lungimea este <= 20
                             value = tempName,
                             onValueChange = { newValue ->
                                 if (newValue.length <= 20) {
@@ -490,7 +467,6 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        // ✅ OPȚIONAL: Adăugăm un contor de caractere mic sub field
                         Text(
                             text = "${tempName.length} / 20",
                             color = if (tempName.length >= 20) Color.Red else Color.Gray,
@@ -509,12 +485,12 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = colorResource(R.color.gold))
                     ) {
-                        Text("Save", color = Color.Black)
+                        Text("Salvează", color = Color.Black)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showEditDialog = false }) {
-                        Text("Cancel", color = Color.White)
+                        Text("Anulează", color = Color.White)
                     }
                 }
             )
@@ -522,9 +498,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
     }
 }
 
-/**
- * ✅ HELPER PENTRU CONEXIUNE
- */
+
 @Composable
 fun rememberConnectivityState(): State<Boolean> {
     val context = LocalContext.current

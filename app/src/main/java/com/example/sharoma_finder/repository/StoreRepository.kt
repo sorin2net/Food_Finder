@@ -19,7 +19,6 @@ class StoreRepository(
 ) {
     private val firebaseDatabase = FirebaseDatabase.getInstance()
 
-    // ✅ VARIABILE PENTRU RATE LIMITING
     private var lastRefreshTime = 0L
     private val MIN_REFRESH_INTERVAL = 300_000L // 5 minute
 
@@ -30,9 +29,7 @@ class StoreRepository(
         private const val CACHE_VALIDITY_HOURS = 6L
     }
 
-    /**
-     * ✅ Verifică dacă datele din baza de date locală mai sunt valabile
-     */
+
     private suspend fun isCacheValid(): Boolean {
         return try {
             val metadata = cacheMetadataDao.getMetadata(CACHE_KEY_STORES)
@@ -43,48 +40,36 @@ class StoreRepository(
 
             if (isValid) {
                 val remainingMinutes = (metadata.expiresAt - now) / 60000
-                Log.d("StoreRepository", "✅ Cache valid for $remainingMinutes more minutes")
             } else {
-                Log.d("StoreRepository", "⏰ Cache EXPIRED (or missing)")
             }
             isValid
         } catch (e: Exception) {
-            Log.e("StoreRepository", "Error checking cache: ${e.message}")
             false
         }
     }
 
-    /**
-     * ✅ Sincronizare date cu Firebase (include logică de eșalonare și siguranță)
-     */
+
     suspend fun refreshStores(forceRefresh: Boolean = false) {
         val now = System.currentTimeMillis()
 
-        // 1. Verificăm Rate Limit (dacă nu este force refresh)
         if (!forceRefresh && (now - lastRefreshTime) < MIN_REFRESH_INTERVAL) {
             val remaining = (MIN_REFRESH_INTERVAL - (now - lastRefreshTime)) / 1000
-            Log.d("StoreRepository", "⏱️ Skipping refresh - too soon (${remaining}s remaining)")
             return
         }
 
         withContext(Dispatchers.IO) {
             try {
-                // 2. Verificăm validitatea cache-ului local
                 if (!forceRefresh && isCacheValid()) {
-                    Log.d("StoreRepository", "📦 Using cached data (still fresh)")
                     return@withContext
                 }
 
                 lastRefreshTime = now
-                Log.d("StoreRepository", "🌍 Starting Firebase sync...")
 
-                // 3. Descărcăm datele din Firebase cu Timeout de 15 secunde
                 val snapshot = withTimeoutOrNull(15000L) {
                     firebaseDatabase.getReference("Stores").get().await()
                 }
 
                 if (snapshot == null || !snapshot.exists()) {
-                    Log.w("StoreRepository", "⚠️ Firebase timeout or empty - keeping cache")
                     return@withContext
                 }
 
@@ -93,17 +78,16 @@ class StoreRepository(
                 for (child in snapshot.children) {
                     val model = parseStoreFromSnapshot(child)
                     if (model != null && model.isValid()) {
-                        // Atribuim cheia unică din Firebase pentru sincronizare corectă
+
                         model.firebaseKey = child.key ?: "${model.CategoryIds.firstOrNull()}_${model.Id}"
                         freshStores.add(model)
                     }
                 }
 
-                // 4. Salvăm în baza de date locală (Room) și actualizăm metadata
                 if (freshStores.isNotEmpty()) {
                     storeDao.insertAll(freshStores)
 
-                    val expiresAt = now + (CACHE_VALIDITY_HOURS * 3600000) // 6 ore convertite în ms
+                    val expiresAt = now + (CACHE_VALIDITY_HOURS * 3600000) // 6 ore convertite in ms
                     cacheMetadataDao.saveMetadata(
                         CacheMetadata(
                             key = CACHE_KEY_STORES,
@@ -112,19 +96,15 @@ class StoreRepository(
                             itemCount = freshStores.size
                         )
                     )
-                    Log.d("StoreRepository", "💾 Cache updated with ${freshStores.size} stores")
                 }
 
             } catch (e: Exception) {
-                Log.e("StoreRepository", "❌ Sync Error: ${e.message}")
-                lastRefreshTime = 0L // Permitem reîncercarea în caz de eroare critică
+                lastRefreshTime = 0L
             }
         }
     }
 
-    /**
-     * ✅ LOGICA DE PARSARE (Folosește convertToList pentru siguranță maximă)
-     */
+
     private fun parseStoreFromSnapshot(snapshot: DataSnapshot): StoreModel? {
         return try {
             val map = snapshot.value as? Map<*, *> ?: return null
@@ -150,15 +130,12 @@ class StoreRepository(
                 Tags = tags
             )
         } catch (e: Exception) {
-            Log.e("StoreRepository", "Parse exception for ${snapshot.key}: ${e.message}")
+            //fail fara logcat
             null
         }
     }
 
-    /**
-     * ✅ FUNCȚIE UTILITARĂ: Convertește orice format primit de la Firebase în List<String>
-     * Filtrează automat elementele null pentru a preveni crash-urile.
-     */
+
     private fun convertToList(data: Any?): List<String> {
         return when (data) {
             is List<*> -> data.mapNotNull { it?.toString() }
@@ -182,9 +159,8 @@ class StoreRepository(
             try {
                 storeDao.deleteAll()
                 cacheMetadataDao.deleteMetadata(CACHE_KEY_STORES)
-                Log.d("StoreRepository", "🗑️ Cache cleared")
             } catch (e: Exception) {
-                Log.e("StoreRepository", "Error clearing cache: ${e.message}")
+                //fail fara log
             }
         }
     }
