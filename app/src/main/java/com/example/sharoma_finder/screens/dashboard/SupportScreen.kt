@@ -115,7 +115,7 @@ fun SupportScreen() {
                         }
                         context.startActivity(intent)
                     } catch (e: Exception) {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/40123456789"))
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.facebook.com/denis.dumitriu.1"))
                         context.startActivity(intent)
                     }
                 }
