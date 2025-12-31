@@ -31,7 +31,6 @@ import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.StoreModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.random.Random
 import com.example.sharoma_finder.viewModel.DashboardViewModel
 
 @Composable
@@ -67,7 +66,6 @@ fun RandomRecommenderScreen(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // === HEADER ===
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -86,13 +84,13 @@ fun RandomRecommenderScreen(
                 ) {
                     Image(
                         painter = painterResource(R.drawable.back),
-                        contentDescription = "Back",
+                        contentDescription = "Înapoi",
                         modifier = Modifier.size(24.dp)
                     )
                 }
 
                 Text(
-                    text = "Random Picker",
+                    text = "Roata pofticiosului",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     color = colorResource(R.color.gold),
@@ -102,7 +100,6 @@ fun RandomRecommenderScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // === CARD DISPLAY ===
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -131,7 +128,7 @@ fun RandomRecommenderScreen(
                                 )
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Text(
-                                    text = "Press SPIN to get\na random restaurant",
+                                    text = "Apasă START pentru\no recomandare rapidă",
                                     fontSize = 18.sp,
                                     color = Color.Gray,
                                     textAlign = TextAlign.Center
@@ -151,7 +148,6 @@ fun RandomRecommenderScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            // === SPIN BUTTON ===
             Button(
                 onClick = {
                     viewModel.addPoints(10)
@@ -162,14 +158,10 @@ fun RandomRecommenderScreen(
                         scope.launch {
                             val iterations = 12
                             val baseDelay = 200L
-
-                            // Alegem câștigătorul de la început, dar îl afișăm doar la final
                             val winner = allStores.random()
 
                             repeat(iterations) { iteration ->
-                                // Ultimele 2 iterații vor tinde spre câștigător sau rămân random
                                 val nextStore = if (iteration == iterations - 1) winner else allStores.random()
-
                                 val request = ImageRequest.Builder(context)
                                     .data(nextStore.ImagePath)
                                     .build()
@@ -203,13 +195,13 @@ fun RandomRecommenderScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Casino,
-                        contentDescription = "Spin",
+                        contentDescription = "Rotește",
                         tint = Color.Black,
                         modifier = Modifier.size(40.dp)
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (isSpinning) "..." else "SPIN",
+                        text = if (isSpinning) "..." else "START",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.Black
@@ -221,10 +213,10 @@ fun RandomRecommenderScreen(
 
             Text(
                 text = when {
-                    allStores.isEmpty() -> "No stores available"
-                    isSpinning -> "Searching..."
-                    finalStore != null -> "Tap the card to view on map"
-                    else -> "Ready to spin!"
+                    allStores.isEmpty() -> "Nu există restaurante disponibile"
+                    isSpinning -> "Se caută..."
+                    finalStore != null -> "Apasă pe card pentru a vedea pe hartă"
+                    else -> "Gata de joacă!"
                 },
                 fontSize = 14.sp,
                 color = if (isSpinning) colorResource(R.color.gold) else Color.Gray,
@@ -244,8 +236,7 @@ private fun StoreDisplayCard(
         modifier = Modifier
             .fillMaxSize()
             .clickable(enabled = !isSpinning) { onClick() }
-            // ✅ MODIFIED: Reduced overall padding, removed top padding completely
-            .padding(top = 0.dp, start = 12.dp, end = 12.dp, bottom = 12.dp),
+            .padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -254,14 +245,12 @@ private fun StoreDisplayCard(
             contentDescription = store.Title,
             modifier = Modifier
                 .fillMaxWidth()
-                // ✅ MODIFIED: Increased image height from 200.dp to 250.dp
                 .height(250.dp)
                 .clip(RoundedCornerShape(16.dp))
                 .background(colorResource(R.color.grey)),
             contentScale = ContentScale.Crop
         )
 
-        // ✅ MODIFIED: Reduced spacing after the larger image
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
@@ -273,12 +262,10 @@ private fun StoreDisplayCard(
             maxLines = 1
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
-
         if (store.distanceToUser >= 0) {
             val distanceKm = store.distanceToUser / 1000
             Text(
-                text = "${String.format("%.1f", distanceKm)} km away",
+                text = "la ${String.format("%.1f", distanceKm)} km distanță",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = colorResource(R.color.gold),
@@ -319,7 +306,7 @@ private fun StoreDisplayCard(
             Spacer(modifier = Modifier.height(12.dp))
             Icon(
                 imageVector = Icons.Default.Casino,
-                contentDescription = "Winner",
+                contentDescription = "Câştigător",
                 tint = colorResource(R.color.gold),
                 modifier = Modifier.size(28.dp)
             )

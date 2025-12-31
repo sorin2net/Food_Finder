@@ -30,15 +30,11 @@ fun AllStoresScreen(
     preLoadedList: List<StoreModel>? = null,
     userLocation: Location? = null
 ) {
-    // ✅ DEBUGGING
     LaunchedEffect(preLoadedList?.size) {
-        Log.d("AllStoresScreen", "📦 Received ${preLoadedList?.size ?: 0} stores for mode: $mode")
     }
 
-    // ✅ FIX: Dacă lista e null SAU goală, afișăm loading
     val isLoading = preLoadedList == null || preLoadedList.isEmpty()
 
-    // ✅ Sortăm lista după distanță (dacă avem locație)
     val listToDisplay = remember(preLoadedList, userLocation) {
         if (preLoadedList != null && userLocation != null) {
             preLoadedList.sortedBy {
@@ -61,7 +57,6 @@ fun AllStoresScreen(
             )
 
             if (isLoading) {
-                // ✅ LOADING STATE
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -77,7 +72,6 @@ fun AllStoresScreen(
                     }
                 }
             } else if (listToDisplay.isEmpty()) {
-                // ✅ EMPTY STATE
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -91,7 +85,6 @@ fun AllStoresScreen(
                     )
                 }
             } else {
-                // ✅ SUCCESS STATE - Afișăm grid-ul
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     contentPadding = PaddingValues(16.dp),

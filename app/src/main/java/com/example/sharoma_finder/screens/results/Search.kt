@@ -34,7 +34,6 @@ fun Search(
     TextField(
         value = text,
         onValueChange = { newText ->
-            // ✅ Filtrăm caracterele newline/enter
             val cleanText = newText.replace("\n", "").replace("\r", "")
             onValueChange(cleanText)
         },
@@ -45,17 +44,14 @@ fun Search(
                 color = Color.White
             )
         },
-        // ✅ ADĂUGAT: Configurăm tastatura să aibă buton de Search
         keyboardOptions = KeyboardOptions(
             imeAction = ImeAction.Search
         ),
-        // ✅ ADĂUGAT: Ascundem tastatura când user-ul apasă Search/Enter
         keyboardActions = KeyboardActions(
             onSearch = {
                 focusManager.clearFocus()
             }
         ),
-        // ✅ IMPORTANT: maxLines = 1 previne enter-ul să creeze linii noi
         maxLines = 1,
         singleLine = true,
         shape = RoundedCornerShape(10.dp),

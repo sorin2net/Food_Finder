@@ -27,11 +27,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.sharoma_finder.R
-import com.example.sharoma_finder.domain.SubCategoryModel  // ✅ SCHIMBAT
+import com.example.sharoma_finder.domain.SubCategoryModel
 
 @Composable
 fun Category(
-    item: SubCategoryModel,  // ✅ SCHIMBAT
+    item: SubCategoryModel,
     isSelected: Boolean,
     onItemClick: () -> Unit
 ) {
@@ -68,7 +68,7 @@ fun Category(
 
 @Composable
 fun SubCategory(
-    subCategory: SnapshotStateList<SubCategoryModel>,  // ✅ SCHIMBAT
+    subCategory: SnapshotStateList<SubCategoryModel>,
     showSubCategoryLoading: Boolean,
     selectedCategoryName: String = "",
     onCategoryClick: (String) -> Unit = {}

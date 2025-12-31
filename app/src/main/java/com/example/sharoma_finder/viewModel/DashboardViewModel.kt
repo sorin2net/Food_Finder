@@ -38,7 +38,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val userManager = UserManager(application.applicationContext)
 
 
-    // ✅ Manager pentru consimțământ internet
     private val internetConsentManager = InternetConsentManager(application.applicationContext)
     private var lastTimerSaveTimestamp: Long = 0L
     private val analytics = FirebaseAnalytics.getInstance(application.applicationContext)
@@ -58,7 +57,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     private lateinit var localStoreObserver: Observer<List<StoreModel>>
 
-    // ✅ PASUL 1: Adăugăm starea pentru tab în ViewModel pentru a supraviețui navigării
     var selectedTab = mutableStateOf("Acasă")
 
     fun updateTab(newTab: String) {
@@ -77,11 +75,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     var isRefreshing = mutableStateOf(false)
         private set
 
-    // ✅ Flag pentru starea internetului
     var hasInternetAccess = mutableStateOf(false)
         private set
 
-    // ✅ ADĂUGAT: Starea permisiunii de locație (folosim mutableStateOf pentru compatibilitate cu Compose)
     var isLocationPermissionGranted = mutableStateOf(false)
 
     var userName = mutableStateOf("Utilizatorule")
@@ -96,22 +92,18 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         loadFavorites()
 
         viewModelScope.launch {
-            // 1. Așteptăm puțin pentru desenarea UI-ului inițial
             delay(500)
             checkInternetConsent()
             userPoints.value = userManager.getPoints()
 
-            // 2. Încărcăm cache-ul local (operațiune pe disc)
-            delay(300) // Mică pauză pentru a nu bloca
+            delay(300)
             checkLocalCache()
             observeLocalDatabase()
 
-            // 3. Pornim timer-ul de XP
             delay(300)
             startUsageTimer()
 
-            // 4. Ultima sarcină: Sincronizarea grea cu Firebase (doar dacă avem net)
-            delay(1000) // Lăsăm DB-ul să se liniștească înainte de rețea
+            delay(1000)
             if (internetConsentManager.canUseInternet()) {
                 refreshDataFromNetwork()
             }
@@ -123,13 +115,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         userManager.savePoints(userPoints.value)
     }
 
-    // Funcție pentru a scădea puncte
     fun removePoints(amount: Int) {
         userPoints.value = (userPoints.value - amount).coerceAtLeast(0)
         userManager.savePoints(userPoints.value)
     }
 
-    // Cronometru: 1 punct la fiecare 60 secunde
     fun startUsageTimer() {
         if (usageTimerJob?.isActive == true) return
         lastTimerSaveTimestamp = userManager.getLastTimerTimestamp()
@@ -141,7 +131,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 val missedSeconds = (now - lastTimerSaveTimestamp) / 1000
                 if (missedSeconds in 1..300) {
                     elapsedSeconds = missedSeconds
-                    Log.d("DashboardVM", "🔄 Recovered $missedSeconds seconds")
                 }
             }
             while (isActive) {
@@ -150,7 +139,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 if (elapsedSeconds % 60 == 0L) {
                     withContext(Dispatchers.Main) {
                         addPoints(1)
-                        Log.d("DashboardVM", "🪙 +1 XP (Total: ${userPoints.value})")
                     }
                 }
                 if (elapsedSeconds % 30 == 0L) {
@@ -163,23 +151,17 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         usageTimerJob?.cancel()
         usageTimerJob = null
 
-        // ✅ Salvăm timestamp-ul când oprim timerul
         userManager.saveLastTimerTimestamp(System.currentTimeMillis())
-        Log.d("DashboardVM", "🛑 Timer stopped and saved")
     }
-    // Apelată când se deschide harta
     fun onStoreOpenedOnMap() {
         addPoints(25)
     }
 
     private fun checkInternetConsent() {
         hasInternetAccess.value = internetConsentManager.canUseInternet()
-        Log.d("DashboardViewModel", "Internet access: ${hasInternetAccess.value}")
     }
 
-    // ✅ FIX APLICAT: Verificare sigură a permisiunii
     fun checkLocationPermission() {
-        // 1. Evităm apelurile multiple simultane
         if (isCheckingPermission) return
         isCheckingPermission = true
 
@@ -188,34 +170,28 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val coarseLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val isGranted = fineLocation || coarseLocation
 
-        // 2. State Guard: Actualizăm doar dacă s-a schimbat ceva real
         if (isLocationPermissionGranted.value != isGranted) {
             viewModelScope.launch(Dispatchers.Main) {
                 isLocationPermissionGranted.value = isGranted
-                Log.d("DashboardViewModel", "📍 Permission state changed: $isGranted")
 
                 if (isGranted) {
                     fetchUserLocation()
                 }
-                isCheckingPermission = false // Eliberăm flag-ul după actualizare
+                isCheckingPermission = false
             }
         } else {
-            isCheckingPermission = false // Eliberăm flag-ul dacă nu a fost nevoie de update
+            isCheckingPermission = false
         }
     }
 
 
-    // ✅ BONUS: Helper pentru MainActivity onResume
     fun onAppResumed() {
         checkLocationPermission()
     }
 
-    /**
-     * ✅ LOGICĂ NOUĂ PENTRU SWITCH-UL DIN PROFIL
-     */
+
     fun onInternetSwitchToggled(enabled: Boolean, onShowConsentDialog: () -> Unit) {
         if (enabled) {
-            // Verificăm dacă a dat deja consimțământ anterior
             if (internetConsentManager.hasInternetConsent()) {
                 enableInternetFeatures()
             } else {
@@ -226,29 +202,23 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /**
-     * ✅ Chemată când userul dă ACCEPT în dialogul din Profil
-     */
+
     fun grantInternetConsentFromProfile() {
         internetConsentManager.grantConsent()
         enableInternetFeatures()
     }
 
     fun enableInternetFeatures() {
-        Log.d("DashboardViewModel", "✅ Enabling internet features")
         if (internetConsentManager.isInternetAvailable()) {
             hasInternetAccess.value = true
             refreshDataFromNetwork()
         } else {
-            Log.w("DashboardViewModel", "❌ Internet enabled by user but NO CONNECTION detected")
             hasInternetAccess.value = true
         }
     }
 
     fun disableInternetFeatures() {
-        Log.d("DashboardViewModel", "❌ Disabling internet features")
         hasInternetAccess.value = false
-        Log.d("DashboardViewModel", "Operating in OFFLINE mode - using cached data only")
     }
 
     private fun checkLocalCache() {
@@ -258,11 +228,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 val cachedCategories = database.categoryDao().getAllCategoriesSync()
                 val cachedBanners = database.bannerDao().getAllBannersSync()
 
-                Log.d("DashboardVM", "📦 Cache check: Stores=${cachedStores.size}, Categories=${cachedCategories.size}, Banners=${cachedBanners.size}")
 
                 withContext(Dispatchers.Main) {
                     if (cachedStores.isNotEmpty()) {
-                        Log.d("DashboardVM", "✅ Loading ${cachedStores.size} stores from cache")
                         allStoresRaw.clear()
                         allStoresRaw.addAll(cachedStores)
 
@@ -276,7 +244,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     isDataLoaded.value = true
                 }
             } catch (e: Exception) {
-                Log.e("DashboardVM", "❌ Cache check failed: ${e.message}")
                 withContext(Dispatchers.Main) {
                     isDataLoaded.value = true
                 }
@@ -287,7 +254,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private fun observeLocalDatabase() {
         localStoreObserver = Observer { stores ->
             if (stores != null) {
-                Log.d("DashboardVM", "🔄 Room LiveData update: ${stores.size} stores")
 
                 synchronized(allStoresRaw) {
                     allStoresRaw.clear()
@@ -315,12 +281,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             return
         }
         if (!internetConsentManager.isInternetAvailable()) {
-            Log.w("DashboardVM", "⚠️ No physical internet connection - Sync skipped")
             return
         }
 
         viewModelScope.launch {
-            Log.d("DashboardVM", "🌐 Starting network sync...")
             try {
                 withContext(Dispatchers.IO) {
                     launch { storeRepository.refreshStores() }
@@ -328,14 +292,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     launch { dashboardRepository.refreshBanners() }
                     launch { dashboardRepository.refreshSubCategories() }
                 }
-                Log.d("DashboardVM", "✅ Network sync completed")
             } catch (e: Exception) {
-                Log.e("DashboardVM", "❌ Network sync failed: ${e.message}")
             }
 
             delay(5000)
             if (!isDataLoaded.value) {
-                Log.w("DashboardVM", "⏰ Timeout - forcing loaded state")
                 isDataLoaded.value = true
             }
         }
@@ -343,13 +304,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun forceRefreshAllData(onFinished: () -> Unit) {
         if (!internetConsentManager.hasInternetConsent()) {
-            Log.w("DashboardVM", "⚠️ Cannot refresh - Internet access disabled in settings")
             onFinished()
             return
         }
 
         if (!internetConsentManager.isInternetAvailable()) {
-            Log.e("DashboardVM", "⛔ BLOCKED: Attempted to wipe cache without internet connection!")
             viewModelScope.launch(Dispatchers.Main) {
                 Toast.makeText(getApplication(), "No internet connection! Cache kept safe. 🛡️", Toast.LENGTH_LONG).show()
                 onFinished()
@@ -362,7 +321,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         isRefreshing.value = true
 
         viewModelScope.launch {
-            Log.d("DashboardVM", "🔄 FORCE REFRESH STARTED")
             try {
                 withContext(Dispatchers.IO) {
                     launch { storeRepository.clearCache() }
@@ -374,9 +332,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 delay(500)
                 refreshDataFromNetwork()
                 delay(1000)
-                Log.d("DashboardVM", "✅ FORCE REFRESH COMPLETED")
             } catch (e: Exception) {
-                Log.e("DashboardVM", "❌ Force refresh failed: ${e.message}")
             } finally {
                 withContext(Dispatchers.Main) {
                     isRefreshing.value = false
@@ -398,25 +354,19 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     .addOnSuccessListener { location ->
                         if (location != null) {
                             updateUserLocation(location)
-                            Log.d("DashboardVM", "📍 GPS: ${location.latitude}, ${location.longitude}")
                         } else {
-                            Log.w("DashboardVM", "⚠️ GPS null")
                         }
                     }
                     .addOnFailureListener { e ->
-                        Log.e("DashboardVM", "❌ GPS failed: ${e.message}")
                     }
             } catch (e: SecurityException) {
-                Log.e("DashboardVM", "🔒 GPS Security Error", e)
             }
         } else {
-            Log.w("DashboardVM", "⚠️ No location permissions")
         }
     }
 
     fun updateUserLocation(location: Location) {
         currentUserLocation = location
-        // ✅ Mutăm calculul pe un thread de fundal (Default) ca să nu se blocheze ecranul
         viewModelScope.launch(Dispatchers.Default) {
             recalculateDistances()
         }
@@ -458,16 +408,14 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         popularStores.addAll(popular)
 
         updateFavoriteStores()
-        Log.d("DashboardVM", "✅ Processed: ${currentList.size} stores, ${popular.size} popular")
     }
 
     override fun onCleared() {
         super.onCleared()
-        stopUsageTimer() // Oprim timerul când ViewModel-ul e distrus
+        stopUsageTimer()
         if (::localStoreObserver.isInitialized) {
             storeRepository.allStores.removeObserver(localStoreObserver)
         }
-        Log.d("DashboardViewModel", "=== CLEANUP COMPLETE ===")
     }
 
     fun logViewStore(store: StoreModel) {
@@ -487,11 +435,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         userImagePath.value = userManager.getImagePath()
     }
 
-    // ✅ Actualizat: Costă 50 XP doar dacă numele este diferit și se salvează
     fun updateUserName(newName: String) {
-        // Verificăm dacă noul nume este gol sau identic cu cel actual
         if (newName.isBlank() || newName == userName.value) {
-            return // Ieșim din funcție fără a scădea puncte
+            return
         }
 
         if (userPoints.value >= 50) {
@@ -504,21 +450,17 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    // ✅ Actualizat: Costă 100 XP doar dacă imaginea a fost procesată cu succes
     fun updateUserImage(uri: Uri) {
         if (userPoints.value >= 100) {
             viewModelScope.launch(Dispatchers.IO) {
                 val internalPath = userManager.copyImageToInternalStorage(uri)
                 withContext(Dispatchers.Main) {
-                    // Verificăm dacă salvarea în stocarea internă a reușit (nu s-a dat cancel)
                     if (internalPath != null) {
-                        removePoints(100) // Luăm punctele DOAR acum
+                        removePoints(100)
                         userImagePath.value = internalPath
                         userManager.saveImagePath(internalPath)
                         Toast.makeText(getApplication(), "Poză actualizată! (-100 XP)", Toast.LENGTH_SHORT).show()
                     } else {
-                        // Dacă procesul a eșuat sau s-a anulat, nu se scad puncte
-                        Log.d("DashboardVM", "Update imagine anulat sau eșuat - nu s-au luat puncte")
                     }
                 }
             }
@@ -550,11 +492,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         if (favoriteStoreIds.contains(uniqueKey)) {
             favoritesManager.removeFavorite(uniqueKey)
             favoriteStoreIds.remove(uniqueKey)
-            removePoints(5) // -5 puncte la scoatere
+            removePoints(10)
         } else {
             favoritesManager.addFavorite(uniqueKey)
             favoriteStoreIds.add(uniqueKey)
-            addPoints(10) // +10 puncte la adăugare
+            addPoints(10)
         }
         updateFavoriteStores()
     }
@@ -563,7 +505,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun loadBanner(): LiveData<List<BannerModel>> = dashboardRepository.allBanners
 
 
-    // ✅ LOGICA CENTRALIZATĂ (Sursă unică de adevăr)
     fun getUserRank(): String {
         val points = userPoints.value
         return when {
@@ -577,7 +518,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    // ✅ Calculează cât de plină să fie bara de progres din Profil
     fun getRankProgress(): Float {
         val points = userPoints.value
         val (start, end) = when {
@@ -587,7 +527,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             points in 100..199 -> 100 to 200
             points in 200..299 -> 200 to 300
             points in 300..499 -> 300 to 500
-            else -> return 1.0f // Maxim pentru Sultan
+            else -> return 1.0f
         }
         return ((points - start).toFloat() / (end - start)).coerceIn(0f, 1f)
     }

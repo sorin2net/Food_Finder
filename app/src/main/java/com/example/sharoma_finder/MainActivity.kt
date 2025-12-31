@@ -54,11 +54,9 @@ class MainActivity : ComponentActivity() {
             val coarseLocation = permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false)
 
             if (fineLocation || coarseLocation) {
-                Log.d("MainActivity", "✅ Location permission granted")
                 dashboardViewModel.fetchUserLocation()
                 dashboardViewModel.checkLocationPermission()
             } else {
-                Log.w("MainActivity", "⚠️ Location permission denied")
                 dashboardViewModel.checkLocationPermission()
             }
         }
@@ -81,12 +79,10 @@ class MainActivity : ComponentActivity() {
                 val observer = LifecycleEventObserver { _, event ->
                     when (event) {
                         Lifecycle.Event.ON_RESUME -> {
-                            // ✅ Pornim timerul când utilizatorul revine
                             dashboardViewModel.startUsageTimer()
                             dashboardViewModel.checkLocationPermission()
                         }
                         Lifecycle.Event.ON_PAUSE -> {
-                            // ✅ Oprim timerul imediat ce aplicația intră în background
                             dashboardViewModel.stopUsageTimer()
                         }
                         else -> {}
@@ -114,7 +110,6 @@ sealed class Screen {
     data object RandomRecommender : Screen()
 }
 
-// Actualizare în MainActivity.kt - Partea de navigation
 
 @Composable
 fun MainApp(
@@ -181,14 +176,12 @@ fun MainApp(
                     backStack.add(Screen.Map(store))
                 },
                 onBannerClick = {
-                    // ✅ NOU: Navigăm către Random Recommender
                     backStack.add(Screen.RandomRecommender)
                 },
                 viewModel = dashboardViewModel
             )
         }
 
-        // ✅ NOU: Random Recommender Screen
         Screen.RandomRecommender -> {
             RandomRecommenderScreen(
                 allStores = dashboardViewModel.getGlobalStoreList(),

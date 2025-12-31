@@ -42,7 +42,6 @@ fun ResultList(
     val database = AppDatabase.getDatabase(context)
     val repository = ResultsRepository(database.subCategoryDao())
 
-    // ✅ MODIFICARE: Două stări pentru căutare (Input instant vs Filtrare debounced)
     var searchTextInput by rememberSaveable { mutableStateOf("") }
     var searchText by rememberSaveable { mutableStateOf("") }
 
@@ -50,25 +49,17 @@ fun ResultList(
     var hasError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    // ✅ LOGICĂ DE DEBOUNCING: Așteptăm 300ms după ultima tastare
     LaunchedEffect(searchTextInput) {
         if (searchTextInput.isEmpty()) {
-            searchText = "" // Resetăm instant dacă șterge tot
+            searchText = ""
         } else {
-            delay(300) // Așteaptă 300ms
+            delay(300)
             searchText = searchTextInput
         }
     }
 
-    // ✅ DEBUGGING: Logăm ce primim
     LaunchedEffect(allGlobalStores.size, id) {
-        Log.d("ResultList", """
-            📦 ResultList launched:
-            - CategoryId: $id
-            - Title: $title
-            - Total stores available: ${allGlobalStores.size}
-            - Stores in this category: ${allGlobalStores.count { it.CategoryIds.contains(id) }}
-        """.trimIndent())
+
     }
 
     val subCategoryState by remember(id) {
@@ -90,7 +81,6 @@ fun ResultList(
     val showSubCategoryLoading = subCategoryState is Resource.Loading
     val subCategorySnapshot = remember(subCategoryList) { listToSnapshot(subCategoryList) }
 
-    // 1. Calculăm lista Popular (Folosește searchText debounced)
     val categoryPopularList = remember(allGlobalStores.size, id, selectedTag) {
         try {
             allGlobalStores.asSequence()
@@ -102,14 +92,12 @@ fun ResultList(
                 }
                 .toList()
         } catch (e: Exception) {
-            Log.e("ResultList", "Filter popular error: ${e.message}")
             hasError = true
             errorMessage = "Error filtering popular stores: ${e.message}"
             emptyList()
         }
     }
 
-    // 2. Calculăm lista Nearest
     val categoryNearestList = remember(allGlobalStores.size, id, userLocation, selectedTag) {
         try {
             val filteredSequence = allGlobalStores.asSequence()
@@ -127,7 +115,6 @@ fun ResultList(
                 filteredSequence.toList()
             }
         } catch (e: Exception) {
-            Log.e("ResultList", "Filter nearest error: ${e.message}")
             hasError = true
             errorMessage = "Error filtering nearest stores: ${e.message}"
             emptyList()
@@ -142,7 +129,6 @@ fun ResultList(
         listToSnapshot(categoryNearestList.take(6))
     }
 
-    // ✅ Search Result (Folosește searchText debounced pentru performanță)
     val searchResults = remember(searchText, allGlobalStores.size, id) {
         if (searchText.isEmpty()) {
             emptyList()
@@ -185,7 +171,6 @@ fun ResultList(
         item { TopTile(title, onBackClick) }
 
         item {
-            // ✅ MODIFICARE: Legăm Search-ul de searchTextInput pentru tastare instantanee
             Search(
                 text = searchTextInput,
                 onValueChange = { newText -> searchTextInput = newText }
@@ -193,7 +178,6 @@ fun ResultList(
         }
 
         if (searchText.isNotEmpty()) {
-            // ===== SEARCH RESULTS =====
             item {
                 Text(
                     text = "Search Results (${searchResults.size})",
@@ -246,7 +230,6 @@ fun ResultList(
             }
 
         } else {
-            // ===== SUBCATEGORIES =====
             item {
                 SubCategory(
                     subCategory = subCategorySnapshot,
@@ -258,7 +241,6 @@ fun ResultList(
                 )
             }
 
-            // ===== POPULAR SECTION =====
             item {
                 if (popularSnapshot.isNotEmpty()) {
                     PopularSection(
@@ -279,7 +261,6 @@ fun ResultList(
                 }
             }
 
-            // ===== NEAREST SECTION =====
             item {
                 if (nearestSnapshot.isNotEmpty()) {
                     NearestList(

@@ -63,14 +63,11 @@ fun StoreDetail(item: StoreModel) {
             )
         }
 
-        // ✅ MODIFICARE: Afișare inteligentă distanță (metri/km)
         if (item.distanceToUser > 0) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val distanceText = if (item.distanceToUser < 1000) {
-                    // Sub 1 km → afișează în metri
                     "${item.distanceToUser.toInt()} m away"
                 } else {
-                    // Peste 1 km → afișează în kilometri cu 1 zecimală
                     String.format("%.1f km away", item.distanceToUser / 1000)
                 }
 

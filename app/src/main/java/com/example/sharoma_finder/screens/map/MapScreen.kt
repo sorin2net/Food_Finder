@@ -13,7 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MyLocation // ✅ Import nou pentru iconița de locație
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,12 +40,12 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
-import com.google.android.gms.maps.CameraUpdateFactory // ✅ Import nou pentru animația camerei
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
-import kotlinx.coroutines.launch // ✅ Import nou pentru corutine
+import kotlinx.coroutines.launch
 
 @Composable
 fun MapScreen(
@@ -54,7 +54,6 @@ fun MapScreen(
     onFavoriteClick: () -> Unit = {},
     onBackClick: () -> Unit
 ) {
-    // ✅ Validare coordonate magazin
     if (store.Latitude == 0.0 || store.Longitude == 0.0) {
         Box(
             modifier = Modifier
@@ -79,11 +78,9 @@ fun MapScreen(
 
     val storeLatlng = LatLng(store.Latitude, store.Longitude)
 
-    // ✅ MODIFICARE: State-uri pentru locația utilizatorului
     var hasLocationPermission by remember { mutableStateOf(false) }
     var userLocation by remember { mutableStateOf<LatLng?>(null) }
 
-    // ✅ OPTIMIZARE: MarkerState creat o singură dată (nu se recreează la mișcare)
     val userMarkerState = remember { MarkerState() }
 
     val cameraPositionState = rememberCameraPositionState {
@@ -118,7 +115,6 @@ fun MapScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // ✅ TRACKING LOCAȚIE LIVE OPTIMIZAT
     DisposableEffect(hasLocationPermission) {
         val currentPermission = checkPermissions()
         hasLocationPermission = currentPermission
@@ -147,9 +143,8 @@ fun MapScreen(
                 }
                 locationResult.lastLocation?.let { location ->
                     val newLatLng = LatLng(location.latitude, location.longitude)
-                    // ✅ Actualizăm ambele stări
                     userLocation = newLatLng
-                    userMarkerState.position = newLatLng // Markerul se mută lin pe hartă
+                    userMarkerState.position = newLatLng
                 }
             }
         }
@@ -157,7 +152,7 @@ fun MapScreen(
         try {
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)
         } catch (e: SecurityException) {
-            Log.e("MapScreen", "❌ Security exception: ${e.message}")
+            Log.e("MapScreen", " Security exception: ${e.message}")
         }
 
         onDispose {
@@ -165,7 +160,7 @@ fun MapScreen(
                 fusedLocationClient.removeLocationUpdates(locationCallback)
                 userLocation = null
             } catch (e: Exception) {
-                Log.e("MapScreen", "❌ Cleanup error: ${e.message}")
+                Log.e("MapScreen", " Cleanup error: ${e.message}")
             }
         }
     }
@@ -177,7 +172,6 @@ fun MapScreen(
             modifier = Modifier.fillMaxSize().constrainAs(map) { centerTo(parent) },
             cameraPositionState = cameraPositionState
         ) {
-            // Marker Magazin
             Marker(
                 state = storeMarkerState,
                 title = store.Title,
@@ -185,10 +179,9 @@ fun MapScreen(
                 icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
             )
 
-            // ✅ Marker Utilizator Optimizat
             if (hasLocationPermission && userLocation != null) {
                 Marker(
-                    state = userMarkerState, // Folosește starea persistentă
+                    state = userMarkerState,
                     title = "Your Location",
                     snippet = "You are here",
                     icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)
@@ -196,7 +189,7 @@ fun MapScreen(
             }
         }
 
-        // Buton Back
+
         Box(
             modifier = Modifier
                 .padding(top = 48.dp, start = 16.dp)
@@ -212,7 +205,6 @@ fun MapScreen(
             Image(painter = painterResource(R.drawable.back), contentDescription = "Back", modifier = Modifier.size(24.dp))
         }
 
-        // Buton Center on me
         if (hasLocationPermission && userLocation != null) {
             Box(
                 modifier = Modifier
@@ -244,7 +236,6 @@ fun MapScreen(
             }
         }
 
-        // Card Detalii
         LazyColumn(
             modifier = Modifier
                 .wrapContentHeight()
@@ -265,22 +256,18 @@ fun MapScreen(
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = colorResource(R.color.gold),
-                        // ✅ Adăugăm o culoare gri pentru când butonul este dezactivat
                         disabledContainerColor = Color.Gray
                     ),
                     modifier = Modifier
                         .padding(8.dp)
                         .fillMaxWidth(),
-                    // ✅ ADĂUGAT: Folosim funcția din StoreModel pentru a activa/dezactiva butonul
                     enabled = store.hasValidPhoneNumber(),
                     onClick = {
-                        // ✅ MODIFICAT: Folosim numărul curățat (fără spații sau cratime)
                         val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${store.getCleanPhoneNumber()}"))
                         context.startActivity(dialIntent)
                     }
                 ) {
                     Text(
-                        // ✅ OPȚIONAL: Putem schimba textul dacă numărul lipsește
                         text = if (store.hasValidPhoneNumber()) "Call to Store" else "Phone Unavailable",
                         fontSize = 16.sp,
                         color = if (store.hasValidPhoneNumber()) Color.Black else Color.LightGray,

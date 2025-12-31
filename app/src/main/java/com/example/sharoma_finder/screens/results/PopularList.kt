@@ -117,13 +117,10 @@ fun ItemsPopular(
             )
         }
 
-        // ✅ MODIFICARE: Afișare inteligentă distanță (metri/km)
         if (item.distanceToUser > 0) {
             val distanceText = if (item.distanceToUser < 1000) {
-                // Sub 1 km → afișează în metri
                 "${item.distanceToUser.toInt()} m"
             } else {
-                // Peste 1 km → afișează în kilometri cu 1 zecimală
                 String.format("%.1f km", item.distanceToUser / 1000)
             }
 
