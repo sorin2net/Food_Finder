@@ -247,7 +247,7 @@ fun MapScreen(
         LazyColumn(
             modifier = Modifier
                 .wrapContentHeight()
-                .padding(start = 8.dp, end = 48.dp, bottom = 32.dp)
+                .padding(start = 16.dp, end = 16.dp, bottom = 32.dp)
                 .fillMaxWidth()
                 .background(colorResource(R.color.black3), shape = RoundedCornerShape(10.dp))
                 .padding(6.dp)
