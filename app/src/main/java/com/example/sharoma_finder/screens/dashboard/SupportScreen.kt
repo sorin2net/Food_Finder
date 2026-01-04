@@ -122,7 +122,7 @@ fun SupportScreen() {
             ),
             ContactOption(
                 title = "Susține-mă",
-                subtitle = "Doar dacă vrei să îmi susții munca altfel",
+                subtitle = "Doar dacă vrei să îmi susții munca direct",
                 icon = Icons.Default.Language,
                 action = {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://revolut.me/teoremareziduri"))
