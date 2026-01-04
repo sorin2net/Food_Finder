@@ -65,7 +65,7 @@ class DashboardRepository(
                     bannerDao.insertAll(banners)
                 }
             } catch (e: Exception) {
-                // Fail silently
+                com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(e)
             }
         }
     }
@@ -91,7 +91,7 @@ class DashboardRepository(
                     subCategoryDao.insertAll(subCategories)
                 }
             } catch (e: Exception) {
-                // Fail silently
+                com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(e)
             }
         }
     }

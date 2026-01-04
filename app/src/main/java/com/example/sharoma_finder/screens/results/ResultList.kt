@@ -26,15 +26,15 @@ import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.repository.Resource
 import com.example.sharoma_finder.repository.ResultsRepository
 import com.example.sharoma_finder.screens.common.ErrorScreen
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 import androidx.compose.animation.core.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ResultList(
@@ -50,8 +50,10 @@ fun ResultList(
     lastUpdateTick: Long = 0L
 ) {
     val context = LocalContext.current
-    val database = AppDatabase.getDatabase(context)
-    val repository = ResultsRepository(database.subCategoryDao())
+    val repository = remember(context) {
+        val database = AppDatabase.getDatabase(context)
+        ResultsRepository(database.subCategoryDao())
+    }
 
     var searchTextInput by remember { mutableStateOf("") }
     var searchText by remember { mutableStateOf("") }
@@ -59,10 +61,36 @@ fun ResultList(
     var hasError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    var isProcessingData by remember { mutableStateOf(true) }
-    val popularStores = remember { mutableStateListOf<StoreModel>() }
-    val nearestStores = remember { mutableStateListOf<StoreModel>() }
-    val searchResults = remember { mutableStateListOf<StoreModel>() }
+    val filteredStores by remember(allGlobalStores, id, selectedTag, searchText, lastUpdateTick) {
+        derivedStateOf {
+            try {
+                allGlobalStores.filter {
+                    it.CategoryIds.contains(id) &&
+                            it.isValid() &&
+                            (selectedTag.isEmpty() || it.hasTag(selectedTag)) &&
+                            (searchText.isEmpty() || it.Title.contains(searchText, ignoreCase = true))
+                }.sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
+    }
+
+    val popularStores by remember(filteredStores) {
+        derivedStateOf {
+            filteredStores.filter { it.IsPopular }.take(6)
+        }
+    }
+
+    val nearestStores by remember(filteredStores) {
+        derivedStateOf {
+            filteredStores.take(6)
+        }
+    }
+
+    val popularSnapshot = remember(popularStores) { listToSnapshot(popularStores) }
+    val nearestSnapshot = remember(nearestStores) { listToSnapshot(nearestStores) }
+
 
     LaunchedEffect(searchTextInput) {
         delay(300)
@@ -84,52 +112,7 @@ fun ResultList(
     }
     val subCategorySnapshot = remember(subCategoryList) { listToSnapshot(subCategoryList) }
 
-    LaunchedEffect(id, selectedTag, userLocation, searchText, allGlobalStores.size,lastUpdateTick) {
-        isProcessingData = true
 
-        withContext(Dispatchers.Default) {
-            try {
-                val filteredByCategory = allGlobalStores.filter {
-                    it.CategoryIds.contains(id) && it.isValid() &&
-                            (selectedTag.isEmpty() || it.hasTag(selectedTag))
-                }
-
-                val popular = filteredByCategory
-                    .filter { it.IsPopular }
-                    .sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
-                    .take(6)
-
-                val nearest = filteredByCategory
-                    .sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
-                    .take(6)
-
-                val searchRes = if (searchText.isNotEmpty()) {
-                    filteredByCategory.filter {
-                        it.Title.contains(searchText, ignoreCase = true)
-                    }.sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
-                } else emptyList()
-
-                withContext(Dispatchers.Main) {
-                    popularStores.clear()
-                    popularStores.addAll(popular)
-
-                    nearestStores.clear()
-                    nearestStores.addAll(nearest)
-
-                    searchResults.clear()
-                    searchResults.addAll(searchRes)
-
-                    isProcessingData = false
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    hasError = true
-                    errorMessage = "Eroare la procesarea datelor"
-                    isProcessingData = false
-                }
-            }
-        }
-    }
 
     if (hasError) {
         ErrorScreen(message = errorMessage, onRetry = { hasError = false })
@@ -153,7 +136,7 @@ fun ResultList(
         if (searchText.isNotEmpty()) {
             item {
                 Text(
-                    text = "Rezultatele căutării (${searchResults.size})",
+                    text = "Rezultatele căutării (${filteredStores.size})",
                     color = colorResource(R.color.gold),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -161,16 +144,11 @@ fun ResultList(
                 )
             }
 
-            if (isProcessingData) {
-                item { LoadingIndicator() }
-            } else if (searchResults.isEmpty()) {
-
-                item {
-                    EmptyStateMessage("Nu am găsit niciun local care să conțină \"$searchText\".")
-                }
+            if (filteredStores.isEmpty()) {
+                item { EmptyStateMessage("Nu am găsit niciun local care să conțină \"$searchText\".") }
             } else {
                 items(
-                    items = searchResults.chunked(2),
+                    items = filteredStores.chunked(2),
                     key = { row -> row.joinToString("-") { it.getUniqueId() } }
                 ) { rowItems ->
                     Row(
@@ -202,7 +180,7 @@ fun ResultList(
                 )
             }
 
-            if (isProcessingData) {
+            if (subCategoryState is Resource.Loading) {
                 item { LoadingIndicator() }
             } else {
                 if (popularStores.isEmpty() && nearestStores.isEmpty()) {
@@ -215,7 +193,7 @@ fun ResultList(
                     if (popularStores.isNotEmpty()) {
                         item {
                             PopularSection(
-                                list = popularStores,
+                                list = popularSnapshot,
                                 showPopularLoading = false,
                                 categoryName = title,
                                 onStoreClick = onStoreClick,
@@ -229,7 +207,7 @@ fun ResultList(
                     if (nearestStores.isNotEmpty()) {
                         item {
                             NearestList(
-                                list = nearestStores,
+                                list = nearestSnapshot,
                                 showNearestLoading = false,
                                 categoryName = title,
                                 onStoreClick = onStoreClick,

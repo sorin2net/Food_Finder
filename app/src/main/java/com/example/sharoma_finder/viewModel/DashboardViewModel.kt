@@ -286,7 +286,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     launch { dashboardRepository.refreshSubCategories() }
                 }
             } catch (e: Exception) {
-                // Fail silently
+                com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(e)
             }
 
             delay(5000)
