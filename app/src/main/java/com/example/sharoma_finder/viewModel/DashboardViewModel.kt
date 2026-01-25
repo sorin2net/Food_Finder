@@ -463,45 +463,51 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         recalculationMutex.withLock {
             withContext(Dispatchers.Default) {
                 val storesCopy = synchronized(allStoresRaw) { allStoresRaw.toList() }
+
                 if (storesCopy.isEmpty()) return@withContext
 
-                val userLoc = currentUserLocation ?: return@withContext
-                val results = FloatArray(1)
+                val userLoc = currentUserLocation
+                val finalSortedList: List<StoreModel>
 
-                val updatedStores = storesCopy.map { originalStore ->
-                    android.location.Location.distanceBetween(
-                        userLoc.latitude, userLoc.longitude,
-                        originalStore.Latitude, originalStore.Longitude,
-                        results
-                    )
-                    originalStore.copy().apply {
-                        distanceToUser = results[0]
+                if (userLoc != null) {
+                    val results = FloatArray(1)
+                    val updatedStores = storesCopy.map { originalStore ->
+                        android.location.Location.distanceBetween(
+                            userLoc.latitude, userLoc.longitude,
+                            originalStore.Latitude, originalStore.Longitude,
+                            results
+                        )
+                        originalStore.copy().apply {
+                            distanceToUser = results[0]
+                        }
                     }
-                }
+                    finalSortedList = updatedStores.sortedBy {
+                        if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
+                    }
 
-                synchronized(allStoresRaw) {
-                    allStoresRaw.clear()
-                    allStoresRaw.addAll(updatedStores)
-                }
-
-                val sortedAll = updatedStores.sortedBy {
-                    if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
+                    synchronized(allStoresRaw) {
+                        allStoresRaw.clear()
+                        allStoresRaw.addAll(updatedStores)
+                    }
+                } else {
+                    finalSortedList = storesCopy
                 }
 
                 withContext(Dispatchers.Main) {
                     liveAllStores.clear()
-                    liveAllStores.addAll(sortedAll)
+                    liveAllStores.addAll(finalSortedList)
+
                     nearestStoresTop5.clear()
-                    nearestStoresTop5.addAll(sortedAll.take(5))
+                    nearestStoresTop5.addAll(finalSortedList.take(5))
 
                     nearestStoresAllSorted.clear()
-                    nearestStoresAllSorted.addAll(sortedAll)
+                    nearestStoresAllSorted.addAll(finalSortedList)
 
                     popularStores.clear()
-                    popularStores.addAll(sortedAll.filter { it.IsPopular })
+                    popularStores.addAll(finalSortedList.filter { it.IsPopular })
 
                     favoriteStores.clear()
-                    favoriteStores.addAll(sortedAll.filter { isFavorite(it) })
+                    favoriteStores.addAll(finalSortedList.filter { isFavorite(it) })
 
                     lastCalculationTimestamp = System.currentTimeMillis()
                 }
