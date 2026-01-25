@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
             if (fineLocation || coarseLocation) {
                 dashboardViewModel.fetchUserLocation()
                 dashboardViewModel.checkLocationPermission()
+                dashboardViewModel.startLocationUpdates()
             } else {
                 dashboardViewModel.checkLocationPermission()
             }
@@ -64,6 +65,7 @@ class MainActivity : ComponentActivity() {
 
         if (hasFineLocation || hasCoarseLocation) {
             dashboardViewModel.fetchUserLocation()
+            dashboardViewModel.startLocationUpdates()
         } else {
             locationPermissionRequest.launch(arrayOf(
                 Manifest.permission.ACCESS_FINE_LOCATION,
@@ -79,9 +81,17 @@ class MainActivity : ComponentActivity() {
                         Lifecycle.Event.ON_RESUME -> {
                             dashboardViewModel.startUsageTimer()
                             dashboardViewModel.checkLocationPermission()
+
+                            val context = this@MainActivity
+                            val hasFine = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                            val hasCoarse = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                            if (hasFine || hasCoarse) {
+                                dashboardViewModel.startLocationUpdates()
+                            }
                         }
                         Lifecycle.Event.ON_PAUSE -> {
                             dashboardViewModel.stopUsageTimer()
+                            dashboardViewModel.stopLocationUpdates()
                         }
                         else -> {}
                     }

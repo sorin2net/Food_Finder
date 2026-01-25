@@ -3,9 +3,11 @@ package com.example.sharoma_finder.viewModel
 import kotlinx.coroutines.isActive
 import android.Manifest
 import android.app.Application
+import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.net.Uri
+import android.os.Looper
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.getValue
@@ -30,7 +32,11 @@ import com.example.sharoma_finder.repository.FavoritesManager
 import com.example.sharoma_finder.repository.InternetConsentManager
 import com.example.sharoma_finder.repository.StoreRepository
 import com.example.sharoma_finder.repository.UserManager
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.google.firebase.analytics.FirebaseAnalytics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -45,7 +51,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val userManager = UserManager(application.applicationContext)
     private val internetConsentManager = InternetConsentManager(application.applicationContext)
 
-    private var lastTimerSaveTimestamp: Long = 0L
     private val analytics = FirebaseAnalytics.getInstance(application.applicationContext)
     private var usageTimerJob: kotlinx.coroutines.Job? = null
     private val database = AppDatabase.getDatabase(application)
@@ -63,6 +68,48 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     )
 
     private lateinit var localStoreObserver: Observer<List<StoreModel>>
+
+    private val locationCallback = object : LocationCallback() {
+        override fun onLocationResult(locationResult: LocationResult) {
+
+            for (location in locationResult.locations) {
+                updateUserLocation(location)
+            }
+        }
+    }
+
+    fun startLocationUpdates() {
+        val context = getApplication<Application>().applicationContext
+
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+            ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return
+        }
+
+        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 10000L).apply {
+            setMinUpdateIntervalMillis(5000L)
+            setMinUpdateDistanceMeters(5f) //
+            setWaitForAccurateLocation(false)
+        }.build()
+
+        try {
+            fusedLocationClient.requestLocationUpdates(
+                locationRequest,
+                locationCallback,
+                Looper.getMainLooper()
+            )
+        } catch (e: SecurityException) {
+        }
+    }
+
+    fun stopLocationUpdates() {
+        val context = getApplication<Application>().applicationContext
+        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+        fusedLocationClient.removeLocationUpdates(locationCallback)
+    }
+
 
     var selectedTab = mutableStateOf("Acasă")
 
@@ -149,7 +196,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun stopUsageTimer() {
         usageTimerJob?.cancel()
         usageTimerJob = null
-
         userManager.saveLastTimerTimestamp(System.currentTimeMillis())
     }
 
@@ -250,7 +296,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         localStoreObserver = Observer { stores ->
             if (stores != null) {
                 viewModelScope.launch(Dispatchers.Default) {
-
                     synchronized(allStoresRaw) {
                         allStoresRaw.clear()
                         allStoresRaw.addAll(stores)
@@ -270,12 +315,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun refreshDataFromNetwork() {
-        if (!internetConsentManager.hasInternetConsent()) {
-            return
-        }
-        if (!internetConsentManager.isInternetAvailable()) {
-            return
-        }
+        if (!internetConsentManager.hasInternetConsent()) return
+        if (!internetConsentManager.isInternetAvailable()) return
 
         viewModelScope.launch {
             try {
@@ -296,10 +337,37 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    private val ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000L
+    private val PREF_LAST_FORCE_REFRESH = "last_force_refresh_timestamp"
+
     fun forceRefreshAllData(onFinished: () -> Unit) {
         if (!internetConsentManager.isInternetAvailable()) {
             viewModelScope.launch(Dispatchers.Main) {
                 Toast.makeText(getApplication(), "Fără conexiune la internet!", Toast.LENGTH_LONG).show()
+                onFinished()
+            }
+            return
+        }
+
+        val prefs = getApplication<Application>().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        val lastRefreshTime = prefs.getLong(PREF_LAST_FORCE_REFRESH, 0L)
+        val currentTime = System.currentTimeMillis()
+
+        if (currentTime - lastRefreshTime < ONE_WEEK_MS) {
+            val remainingMs = lastRefreshTime + ONE_WEEK_MS - currentTime
+            val daysRemaining = (remainingMs / (1000 * 60 * 60 * 24)).toInt()
+            val hoursRemaining = ((remainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toInt()
+
+            val message = when {
+                daysRemaining > 1 -> "Poți actualiza din nou în $daysRemaining zile și $hoursRemaining ore"
+                daysRemaining == 1 -> "Poți actualiza din nou în 1 zi și $hoursRemaining ore"
+                hoursRemaining > 1 -> "Poți actualiza din nou în $hoursRemaining ore"
+                hoursRemaining == 1 -> "Poți actualiza din nou în 1 oră"
+                else -> "Poți actualiza din nou în câteva minute"
+            }
+
+            viewModelScope.launch(Dispatchers.Main) {
+                Toast.makeText(getApplication(), message, Toast.LENGTH_LONG).show()
                 onFinished()
             }
             return
@@ -312,6 +380,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 withContext(Dispatchers.IO) {
                     storeRepository.refreshStores(forceRefresh = true)
+
                     val imageLoader = Coil.imageLoader(application)
                     allStoresRaw.forEach { store ->
                         val request = ImageRequest.Builder(application)
@@ -319,13 +388,29 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                             .build()
                         imageLoader.enqueue(request)
                     }
+
                     dashboardRepository.refreshCategories()
                     dashboardRepository.refreshBanners()
                     dashboardRepository.refreshSubCategories()
+
+                    prefs.edit().putLong(PREF_LAST_FORCE_REFRESH, System.currentTimeMillis()).apply()
                 }
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        getApplication(),
+                        "Datele au fost actualizate cu succes!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(getApplication(), "Eroare la actualizare: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                        getApplication(),
+                        "Eroare la actualizare: ${e.localizedMessage}",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             } finally {
                 withContext(Dispatchers.Main) {
@@ -350,12 +435,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                             updateUserLocation(location)
                         }
                     }
-                    .addOnFailureListener { e ->
-                        // Handle failure
-                    }
-            } catch (e: SecurityException) {
-                // Handle exception
-            }
+            } catch (e: SecurityException) { }
         }
     }
 
@@ -366,7 +446,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun updateUserLocation(location: Location) {
         val distanceMoved = lastCalculationLocation?.distanceTo(location) ?: Float.MAX_VALUE
         val timeSinceLastCalc = System.currentTimeMillis() - lastCalculationTimestamp
-        val shouldRecalculate = distanceMoved >= 10f || timeSinceLastCalc > 120_000L
+
+        val shouldRecalculate = distanceMoved >= 3f || timeSinceLastCalc > 3000L
 
         if (!shouldRecalculate) return
 
@@ -435,6 +516,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     override fun onCleared() {
         super.onCleared()
         stopUsageTimer()
+        stopLocationUpdates()
         if (::localStoreObserver.isInitialized) {
             storeRepository.allStores.removeObserver(localStoreObserver)
         }
@@ -498,17 +580,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private fun loadFavorites() {
         favoriteStoreIds.clear()
         favoriteStoreIds.addAll(favoritesManager.getFavorites())
-    }
-
-    private fun updateFavoriteStores() {
-        val favorites = allStoresRaw.filter { store ->
-            favoriteStoreIds.contains(store.getUniqueId())
-        }
-        val sortedFavorites = favorites.sortedBy {
-            if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser
-        }
-        favoriteStores.clear()
-        favoriteStores.addAll(sortedFavorites)
     }
 
     fun isFavorite(store: StoreModel): Boolean = favoriteStoreIds.contains(store.getUniqueId())

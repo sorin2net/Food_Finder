@@ -395,7 +395,7 @@ fun ProfileScreen(viewModel: DashboardViewModel) {
             Button(
                 onClick = {
                     viewModel.forceRefreshAllData {
-                        Toast.makeText(context, "Reîncărcat cu succes!", Toast.LENGTH_SHORT).show()
+                        //Toast.makeText(context, "Reîncărcat cu succes!", Toast.LENGTH_SHORT).show()
                     }
                 },
                 enabled = canRefresh,
