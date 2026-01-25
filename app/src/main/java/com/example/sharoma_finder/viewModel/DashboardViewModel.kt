@@ -55,7 +55,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private var usageTimerJob: kotlinx.coroutines.Job? = null
     private val database = AppDatabase.getDatabase(application)
     private var isCheckingPermission = false
-
+    val liveAllStores = mutableStateListOf<StoreModel>()
     private val storeRepository = StoreRepository(
         database.storeDao(),
         database.cacheMetadataDao()
@@ -489,6 +489,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 }
 
                 withContext(Dispatchers.Main) {
+                    liveAllStores.clear()
+                    liveAllStores.addAll(sortedAll)
                     nearestStoresTop5.clear()
                     nearestStoresTop5.addAll(sortedAll.take(5))
 

@@ -205,23 +205,25 @@ fun MainApp(
         popBackStack()
     }
 
+    val navigateToMap: (StoreModel) -> Unit = { store ->
+        dashboardViewModel.onStoreOpenedOnMap()
+        backStack.add(
+            Screen.Map(
+                storeFirebaseKey = store.firebaseKey,
+                storeTitle = store.Title,
+                latitude = store.Latitude,
+                longitude = store.Longitude
+            )
+        )
+    }
+
     when (val screen = currentScreen) {
         Screen.Dashboard -> {
             DashboardScreen(
                 onCategoryClick = { id, title ->
                     backStack.add(Screen.Results(id, title))
                 },
-                onStoreClick = { store ->
-                    dashboardViewModel.onStoreOpenedOnMap()
-                    backStack.add(
-                        Screen.Map(
-                            storeFirebaseKey = store.firebaseKey,
-                            storeTitle = store.Title,
-                            latitude = store.Latitude,
-                            longitude = store.Longitude
-                        )
-                    )
-                },
+                onStoreClick = navigateToMap,
                 onBannerClick = {
                     backStack.add(Screen.RandomRecommender)
                 },
@@ -231,96 +233,70 @@ fun MainApp(
 
         Screen.RandomRecommender -> {
             RandomRecommenderScreen(
-                allStores = dashboardViewModel.getGlobalStoreList(),
+                allStores = dashboardViewModel.liveAllStores,
                 viewModel = dashboardViewModel,
                 onBackClick = { popBackStack() },
-                onStoreClick = { store ->
-                    dashboardViewModel.onStoreOpenedOnMap()
-                    backStack.add(
-                        Screen.Map(
-                            storeFirebaseKey = store.firebaseKey,
-                            storeTitle = store.Title,
-                            latitude = store.Latitude,
-                            longitude = store.Longitude
-                        )
-                    )
-                }
+                onStoreClick = navigateToMap
             )
         }
 
         is Screen.Results -> {
+
             ResultList(
                 id = screen.id,
                 title = screen.title,
                 onBackClick = { popBackStack() },
-                onStoreClick = { store ->
-                    dashboardViewModel.onStoreOpenedOnMap()
-                    backStack.add(
-                        Screen.Map(
-                            storeFirebaseKey = store.firebaseKey,
-                            storeTitle = store.Title,
-                            latitude = store.Latitude,
-                            longitude = store.Longitude
-                        )
-                    )
-                },
+                onStoreClick = navigateToMap,
                 onSeeAllClick = { mode ->
                     backStack.add(Screen.ViewAll(screen.id, mode))
                 },
                 isStoreFavorite = { store -> dashboardViewModel.isFavorite(store) },
                 onFavoriteToggle = { store -> dashboardViewModel.toggleFavorite(store) },
-                allGlobalStores = dashboardViewModel.getGlobalStoreList(),
+                allGlobalStores = dashboardViewModel.liveAllStores,
                 userLocation = dashboardViewModel.currentUserLocation,
                 lastUpdateTick = dashboardViewModel.lastCalculationTimestamp
             )
         }
 
         is Screen.ViewAll -> {
-            val listToSend = when (screen.mode) {
-                "popular" -> {
-                    dashboardViewModel.getGlobalStoreList()
-                        .filter { it.CategoryIds.contains(screen.id) && it.IsPopular }
-                        .sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
+            val liveFilteredList by remember(screen.mode, screen.id, dashboardViewModel.liveAllStores) {
+                derivedStateOf {
+                    val list = dashboardViewModel.liveAllStores
+                    when (screen.mode) {
+                        "popular" -> {
+                            list.filter { it.CategoryIds.contains(screen.id) && it.IsPopular }
+                                .sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
+                        }
+                        "nearest", "nearest_all" -> {
+                            list.filter { it.CategoryIds.contains(screen.id) }
+                                .sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
+                        }
+                        else -> emptyList()
+                    }
                 }
-                "nearest", "nearest_all" -> {
-                    dashboardViewModel.getGlobalStoreList()
-                        .filter { it.CategoryIds.contains(screen.id) }
-                        .sortedBy { if (it.distanceToUser < 0) Float.MAX_VALUE else it.distanceToUser }
-                }
-                else -> emptyList()
             }
 
             AllStoresScreen(
                 categoryId = screen.id,
                 mode = screen.mode,
                 onBackClick = { popBackStack() },
-                onStoreClick = { store ->
-                    dashboardViewModel.onStoreOpenedOnMap()
-                    backStack.add(
-                        Screen.Map(
-                            storeFirebaseKey = store.firebaseKey,
-                            storeTitle = store.Title,
-                            latitude = store.Latitude,
-                            longitude = store.Longitude
-                        )
-                    )
-                },
+                onStoreClick = navigateToMap,
                 isStoreFavorite = { store -> dashboardViewModel.isFavorite(store) },
                 onFavoriteToggle = { store -> dashboardViewModel.toggleFavorite(store) },
-                preLoadedList = listToSend,
+                preLoadedList = liveFilteredList,
                 userLocation = dashboardViewModel.currentUserLocation
             )
         }
 
         is Screen.Map -> {
-            val store = dashboardViewModel.getGlobalStoreList()
+            val liveStore = dashboardViewModel.liveAllStores
                 .firstOrNull { it.firebaseKey == screen.storeFirebaseKey }
 
-            if (store != null) {
+            if (liveStore != null) {
                 MapScreen(
-                    store = store,
-                    isFavorite = dashboardViewModel.isFavorite(store),
-                    onFavoriteClick = { dashboardViewModel.toggleFavorite(store) },
+                    store = liveStore,
+                    isFavorite = dashboardViewModel.isFavorite(liveStore),
+                    onFavoriteClick = { dashboardViewModel.toggleFavorite(liveStore) },
                     onBackClick = { popBackStack() }
                 )
             } else {
