@@ -259,7 +259,8 @@ fun MainApp(
         }
 
         is Screen.ViewAll -> {
-            val liveFilteredList by remember(screen.mode, screen.id, dashboardViewModel.liveAllStores) {
+            val updateTick = dashboardViewModel.lastCalculationTimestamp
+            val liveFilteredList by remember(screen.mode, screen.id, dashboardViewModel.liveAllStores,updateTick) {
                 derivedStateOf {
                     val list = dashboardViewModel.liveAllStores
                     when (screen.mode) {

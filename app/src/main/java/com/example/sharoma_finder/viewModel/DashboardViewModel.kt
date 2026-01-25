@@ -88,10 +88,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
         val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
 
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 10000L).apply {
-            setMinUpdateIntervalMillis(5000L)
-            setMinUpdateDistanceMeters(5f) //
-            setWaitForAccurateLocation(false)
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000L).apply {
+            setMinUpdateIntervalMillis(2000L)
+            setMinUpdateDistanceMeters(0f) //
+            //setWaitForAccurateLocation(false)
         }.build()
 
         try {
@@ -441,7 +441,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     private var lastCalculationLocation: Location? = null
     var lastCalculationTimestamp by mutableStateOf(0L)
-        private set
+        //private set
 
     fun updateUserLocation(location: Location) {
         val distanceMoved = lastCalculationLocation?.distanceTo(location) ?: Float.MAX_VALUE
