@@ -438,6 +438,14 @@ fun AppInfoSection() {
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Design Grafic (Icon & Banner): Catrinescu Andreea",
+                fontSize = 13.sp,
+                color = colorResource(R.color.gold),
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(8.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
