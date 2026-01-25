@@ -1,8 +1,7 @@
 package com.example.sharoma_finder.screens.map
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
+import android.location.Location
 import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -19,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -27,19 +25,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
-import androidx.core.app.ActivityCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import com.example.sharoma_finder.R
 import com.example.sharoma_finder.domain.StoreModel
 import com.example.sharoma_finder.screens.results.ItemsNearest
 import com.example.sharoma_finder.utils.LockScreenOrientation
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -50,6 +39,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun MapScreen(
     store: StoreModel,
+    currentUserLocation: Location?,
     isFavorite: Boolean = false,
     onFavoriteClick: () -> Unit = {},
     onBackClick: () -> Unit
@@ -75,91 +65,35 @@ fun MapScreen(
     }
 
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val storeLatlng = LatLng(store.Latitude, store.Longitude)
 
-    var hasLocationPermission by remember { mutableStateOf(checkPermissions(context)) }
-    var userLocation by remember { mutableStateOf<LatLng?>(null) }
+    val userLatLng = remember(currentUserLocation) {
+        currentUserLocation?.let { LatLng(it.latitude, it.longitude) }
+    }
+
+    val storeMarkerState = remember(store.firebaseKey) { MarkerState(position = storeLatlng) }
 
     val userMarkerState = remember { MarkerState() }
-    val storeMarkerState = remember(store.firebaseKey) { MarkerState(position = storeLatlng) }
+    LaunchedEffect(userLatLng) {
+        userLatLng?.let { userMarkerState.position = it }
+    }
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(storeLatlng, 15f)
-    }
-
-    fun checkCurrentPermissions(): Boolean {
-        val fineLocation = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val coarseLocation = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        return fineLocation || coarseLocation
     }
 
     LaunchedEffect(store.firebaseKey) {
         cameraPositionState.position = CameraPosition.fromLatLngZoom(storeLatlng, 15f)
     }
 
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                hasLocationPermission = checkCurrentPermissions()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    DisposableEffect(hasLocationPermission) {
-        if (!hasLocationPermission) return@DisposableEffect onDispose { }
-
-        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-
-        try {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                if (location != null && checkCurrentPermissions()) {
-                    val newLatLng = LatLng(location.latitude, location.longitude)
-                    userLocation = newLatLng
-                    userMarkerState.position = newLatLng
-                }
-            }
-        } catch (e: SecurityException) { /* Ignorat */ }
-
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 10000L).apply {
-            setMinUpdateIntervalMillis(5000L)
-            setMaxUpdateDelayMillis(15000L)
-        }.build()
-
-        val locationCallback = object : LocationCallback() {
-            override fun onLocationResult(locationResult: LocationResult) {
-                if (!checkCurrentPermissions()) {
-                    fusedLocationClient.removeLocationUpdates(this)
-                    return
-                }
-                locationResult.lastLocation?.let { location ->
-                    val newLatLng = LatLng(location.latitude, location.longitude)
-                    userLocation = newLatLng
-                    userMarkerState.position = newLatLng
-                }
-            }
-        }
-
-        try {
-            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)
-        } catch (e: SecurityException) { /* Ignorat */ }
-
-        onDispose {
-            try {
-                fusedLocationClient.removeLocationUpdates(locationCallback)
-            } catch (e: Exception) { /* Ignorat */ }
-        }
-    }
 
     ConstraintLayout(modifier = Modifier.fillMaxSize()) {
         val (map, detail, backBtn, centerBtn) = createRefs()
 
         val mapProperties = remember {
             MapProperties(
-                isMyLocationEnabled = hasLocationPermission,
+                isMyLocationEnabled = false,
                 mapType = MapType.NORMAL
             )
         }
@@ -186,7 +120,7 @@ fun MapScreen(
                 icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
             )
 
-            userLocation?.let {
+            userLatLng?.let {
                 Marker(
                     state = userMarkerState,
                     title = "Locația ta",
@@ -215,7 +149,7 @@ fun MapScreen(
             )
         }
 
-        userLocation?.let { location ->
+        userLatLng?.let { location ->
             Box(
                 modifier = Modifier
                     .padding(top = 48.dp, end = 16.dp)
@@ -287,10 +221,4 @@ fun MapScreen(
             }
         }
     }
-}
-
-private fun checkPermissions(context: android.content.Context): Boolean {
-    val fineLocation = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-    val coarseLocation = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-    return fineLocation || coarseLocation
 }

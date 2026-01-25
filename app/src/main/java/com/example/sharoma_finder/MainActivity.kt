@@ -292,10 +292,11 @@ fun MainApp(
         is Screen.Map -> {
             val liveStore = dashboardViewModel.liveAllStores
                 .firstOrNull { it.firebaseKey == screen.storeFirebaseKey }
-
+            val currentLocation = dashboardViewModel.currentUserLocation
             if (liveStore != null) {
                 MapScreen(
                     store = liveStore,
+                    currentUserLocation = currentLocation,
                     isFavorite = dashboardViewModel.isFavorite(liveStore),
                     onFavoriteClick = { dashboardViewModel.toggleFavorite(liveStore) },
                     onBackClick = { popBackStack() }
@@ -309,6 +310,7 @@ fun MainApp(
                 )
                 MapScreen(
                     store = tempStore,
+                    currentUserLocation = currentLocation,
                     isFavorite = false,
                     onFavoriteClick = {},
                     onBackClick = { popBackStack() }
