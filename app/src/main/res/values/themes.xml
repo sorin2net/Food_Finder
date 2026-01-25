@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Sharoma_Finder" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Sharoma_Finder" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/grey</item>
+        
+        <item name="android:windowSplashScreenBackground">@color/black2</item>
+
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
 </resources>
