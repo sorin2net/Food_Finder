@@ -13,8 +13,8 @@
 -keep class com.google.android.gms.measurement.** { *; }
 -keep class com.google.firebase.crashlytics.** { *; }
 
--keep class com.example.sharoma_finder.domain.** { *; }
--keepclassmembers class com.example.sharoma_finder.domain.** {
+-keep class com.denis.shaormafinder.domain.** { *; }
+-keepclassmembers class com.denis.shaormafinder.domain.** {
     <init>(...);
     <fields>;
 }

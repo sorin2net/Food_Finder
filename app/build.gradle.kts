@@ -11,11 +11,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.sharoma_finder"
+    namespace = "com.denis.shaormafinder"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.sharoma_finder"
+        applicationId = "com.denis.shaormafinder"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

@@ -8,6 +8,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:1040474695872:android:8ad5b5c57a5e96ced62525",
+        "android_client_info": {
+          "package_name": "com.denis.shaormafinder"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRKkedwVu8TTs7LzkvC3_3hT7a84XK5z4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:1040474695872:android:3dd75b2d50932455d62525",
         "android_client_info": {
           "package_name": "com.example.sharoma_finder"
