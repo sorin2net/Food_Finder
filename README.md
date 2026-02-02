@@ -6,7 +6,7 @@
 
 **Shaorma Finder** este o aplicație Android nativă dedicată comunității din Iași, creată pentru a simplifica procesul de a găsi cea mai bună mâncare rapidă. Aplicația combină geolocația în timp real cu o bază de date dinamică pentru a oferi utilizatorilor cea mai scurtă rută către pofta lor.
 
-<img src="screenshots/image.png" width="100%" alt="Banner Aplicatie"/>
+<img src="screenshots/image.png" height="600" alt="Ecran Principal"/>
 
 </div>
 
@@ -66,7 +66,6 @@ Pentru a crește engagement-ul, am implementat un sistem de progresie.
 * **Autentificare:** Firebase Auth
 * **UI/UX:** XML Layouts, Material Design Components
 * **Altele:** Glide (pentru încărcare imagini), Location Services.
-## ⚙️ Setup & Instalare (Pentru developeri)
 
 Dacă dorești să rulezi proiectul local, vei avea nevoie de propriile chei API.
 
