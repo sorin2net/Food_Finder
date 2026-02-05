@@ -60,7 +60,7 @@ Pentru a crește engagement-ul, am implementat un sistem de progresie.
 
 ## 🛠️ Tech Stack
 
-* **Limbaj:** Java / Android SDK
+* **Limbaj:** Kotlin / Android SDK
 * **Backend:** Firebase Realtime Database (stocare date restaurante, useri)
 * **Hărți:** Google Maps SDK for Android & Google Cloud Console
 * **Autentificare:** Firebase Auth
